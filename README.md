@@ -79,20 +79,46 @@ extend type Mutation {
 There's a number of messages you might be interested in sending:
 
 - Validation errors (abort) or warnings (hint, but don't abort):
-  - level: 'error', message: 'Invalid email address - must contain at least one @ symbol', path: ['input', 'email']
-  - level: 'warning', message: 'Missing subject', path: ['input', 'subject']
+  - [B] level: 'error', message: 'Invalid email address - must contain at least one @ symbol', path: ['input', 'email']
+  - [B] level: 'warning', message: 'Missing subject', path: ['input', 'subject']
+  - [E] level: 'error', message: 'The domain for this email is unreachable', path: ['input', 'email']
 - Authorization issues:
-  - level: 'error', message: 'You must be on a paid plan to send emails'
-  - level: 'error', message: 'You are not permitted to email this address', path: ['input', 'email']
-  - level: 'error', message: 'Insufficient credits to send email', remaining_credits: 2, required_credits: 7
-- Helpful notices:
-  - level: 'notice', message: 'Email sent, remaining credits: 177', remaining_credits: 177
-  - level: 'notice', message: 'Emails are currently subject to a 3 minute delay due to abuse circumvention; normal service should resume shortly'
+  - [B] level: 'error', message: 'You must be on a paid plan to send emails'
+  - [B] level: 'error', message: 'You are not permitted to email this address', path: ['input', 'email']
+- Business requirements:
+  - [B] level: 'error', message: 'Insufficient credits to send email', remaining_credits: 2, required_credits: 7
+  - [A] level: 'warn', message: 'Your credit is very low', remaining_credits: 9, required_credits: 7
+- Notices:
+  - [E] level: 'error', message: 'Email sending is not available at this time, please try again later'
+  - [B] level: 'notice', message: 'Emails are currently subject to a 3 minute delay due to abuse circumvention; normal service should resume shortly'
+  - [A] level: 'notice', message: 'Email sent, remaining credits: 177', remaining_credits: 177
+  - [A] level: 'notice', message: 'You have 2 unsent emails in your outbox, please review them'
+
+You'll notice that every message has a `level` string and `message` string,
+many also have a `path` string array. All messages can optionally define
+additional arbitrary keys. I've also tagged each one `[B]` for "before" (i.e.
+this message would be generated before the mutation takes place), `[A]` for
+"after" (i.e. this message would be generated during or after the mutation),
+and `[E]` for "error" (i.e. this message may be generated if an error
+occurred during the mutation itself).
+
+The `level` key is treated specially; if any message generated before the
+mutation takes place produces a message with `level='error'` then the
+mutation will be aborted with an error. The value in doing this with these
+messages is that more than one error (along with associated warnings,
+notices, etc) can be raised at the same time, allowing the user to fix
+multiple issues at once, resulting in greater user satisfaction.
+
+Messages are accumulated from all the operation hooks that have been added to
+the current mutation. One hook producing a message with level=error will not
+prevent further hooks from being called (however you can prevent other hooks
+from being called by literally throwing an error).
 
 ### Exposing messages
 
-Should you wish to use the messages feature (to surface notifications to
-GraphQL), you may use the CLI flag `--operation-messages` or library config
+Should you wish to surface notifications via GraphQL (rather than just using
+the before/after hooks to cause side effects, or possibly raise 'error'
+messages), you may use the CLI flag `--operation-messages` or library config
 `operationMessages: true`. Doing so will extend the mutation payloads in your
 GraphQL schema with a `messages` entry, a list of the messages raised, and
 will also expose relevant messages on any GraphQL errors that are throw.
@@ -123,6 +149,9 @@ type must specify at least the 3 fields defined in the interface:
   - application developer may find other uses for this, so no further validation will be done
   - typically denotes the path to the field that caused the error
 
+⚠️ Please note that messages added to errors do NOT conform to the GraphQL
+definitions, so be careful to not expose more information than you intend!
+
 ## SQL hooks
 
 Adding this schema plugin to a PostGraphile server will give you the ability
@@ -151,7 +180,7 @@ create type mutation_message (
 To be detected as a mutation operation hook, these PostgreSQL functions must
 conform the the following requirements:
 
-- Must be defined in an exposed schema
+- Must be defined in an exposed schema (may be lifted in future)
 - Must be named according to the SQL Operation Callback Naming Convention (see below)
 - Must accept one JSON or JSONB argument, which represents the `args` value
   passed to the mutation (this is JSON/JSONB to allow us to exactly represent
