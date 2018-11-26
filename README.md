@@ -134,8 +134,17 @@ interface OperationMessageInterface {
 }
 ```
 
-You can then define whatever concrete message subtypes you need. A message
-type must specify at least the 3 fields defined in the interface:
+And extend all mutation payloads to expose them:
+
+```graphql
+extend type *MutationPayload {
+  messages: [OperationMessageInterface!]
+}
+```
+
+You can then define whatever concrete message subtypes you need to be
+returned. A message type must specify at least the 3 fields defined in the
+interface:
 
 - `level` (required, string)
   - e.g. `error`, `warning`, `notification`, `info`, `debug`, ...
@@ -159,12 +168,12 @@ to define mutation operation hooks via PostgreSQL functions.
 
 ### SQL operation message identifier
 
-If you provide the CLI flag `--operation-message-identifier my_schema.my_type`
-(or library `operationMessageIdentifier: "my_schema.my_type"`) then
-`my_schema.my_type` will be interpretted as an operation message type; it
-must have the fields specified above (`level`, `message` and `path`) but may
-have additional fields also. If you also pass `--operation-messages` then
-this type will be exposed and have the `OperationMessageInterface` added.
+If you provide the CLI flag `--operation-message-identifier my_schema.my_type` (or library `operationMessageIdentifier: "my_schema.my_type"`) then `my_schema.my_type` will be interpretted as an
+operation message type; it must have the fields specified above (`level`,
+`message` and `path`) but may have additional fields also. If you also pass
+`--operation-messages` then this type will have the
+`OperationMessageInterface` added, and will be returned with relevant
+mutation payloads.
 
 ```sql
 create type mutation_message (
@@ -185,8 +194,8 @@ conform the the following requirements:
 - Must accept one JSON or JSONB argument, which represents the `args` value
   passed to the mutation (this is JSON/JSONB to allow us to exactly represent
   what PostGraphile received, including representing missing keys/etc)
-- Must return either `VOID` or an array of the `operationMessageIdentifier`
-  type defined above.
+- Must return either `VOID` or, if `--operation-message-identifier` is
+  specified, an array of the specified type
 - Must be either `VOLATILE` (default) or `STABLE` (note: can only be `STABLE`
   if it does not return `VOID`)
 
@@ -214,9 +223,9 @@ as $$
   )::mutation_message];
 $$ language sql stable;
 comment on function "__mutation_createUser_before"(jsonb) is E'@omit';
-
-select * from unnest("__createUser_before"('{}'::jsonb));
 ```
+
+(To see this working, run this SQL: `select * from unnest("__createUser_before"('{}'::jsonb));`)
 
 ### SQL operation callback naming convention
 
@@ -246,8 +255,9 @@ module.exports = makeAddInflectorsPlugin(
         : isRootSubscription
         ? "subscription"
         : null;
-      if (operationType === null)
+      if (operationType === null) {
         throw new Error("Invalid fieldContext passed to inflector");
+      }
       return `__${operationType}_${fieldName}_${when.toLowerCase()}`;
     }
   },
