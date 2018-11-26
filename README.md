@@ -59,8 +59,40 @@ const schema = createPostGraphileSchema(DATABASE_URL, SCHEMA_NAME, {
 
 ## Messages (notifications)
 
-Should you wish to use the messages feature (to surface notifications), you
-may use the CLI flag `--operation-messages` or library config
+The messages plugin gives you the ability to associate messages with an
+operation. Each message has at least a `level` and `message` field (both are
+strings).
+
+Imagine you have the following GraphQL mutation:
+
+```graphql
+input SendEmailInput {
+  email: String!
+  subject: String
+  body: String
+}
+extend type Mutation {
+  sendEmail(input: SendEmailInput!): SendEmailPayload
+}
+```
+
+There's a number of messages you might be interested in sending:
+
+- Validation errors (abort) or warnings (hint, but don't abort):
+  - level: 'error', message: 'Invalid email address - must contain at least one @ symbol', path: ['input', 'email']
+  - level: 'warning', message: 'Missing subject', path: ['input', 'subject']
+- Authorization issues:
+  - level: 'error', message: 'You must be on a paid plan to send emails'
+  - level: 'error', message: 'You are not permitted to email this address', path: ['input', 'email']
+  - level: 'error', message: 'Insufficient credits to send email', remaining_credits: 2, required_credits: 7
+- Helpful notices:
+  - level: 'notice', message: 'Email sent, remaining credits: 177', remaining_credits: 177
+  - level: 'notice', message: 'Emails are currently subject to a 3 minute delay due to abuse circumvention; normal service should resume shortly'
+
+### Exposing messages
+
+Should you wish to use the messages feature (to surface notifications to
+GraphQL), you may use the CLI flag `--operation-messages` or library config
 `operationMessages: true`. Doing so will extend the mutation payloads in your
 GraphQL schema with a `messages` entry, a list of the messages raised, and
 will also expose relevant messages on any GraphQL errors that are throw.
