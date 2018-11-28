@@ -174,6 +174,6 @@ test("throws error if hook is registered after hooks have been called", async ()
   }
   expect(err).toBeTruthy();
   expect(err).toMatchInlineSnapshot(
-    `[Error: Attempted to register operation hook after a hook was applied]`
+    `[Error: Attempted to register operation hook after a hook was applied; this indicates an issue with the ordering of your plugins. Ensure that the OperationHooksPlugin and anything that depends on it come at the end of the plugins list.]`
   );
 });

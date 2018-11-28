@@ -69,7 +69,7 @@ const OperationHooksPlugin: Plugin = function OperationHooksPlugin(builder) {
       addOperationHook(fn: OperationHookGenerator) {
         if (locked) {
           throw new Error(
-            "Attempted to register operation hook after a hook was applied"
+            "Attempted to register operation hook after a hook was applied; this indicates an issue with the ordering of your plugins. Ensure that the OperationHooksPlugin and anything that depends on it come at the end of the plugins list."
           );
         }
         _operationHookGenerators.push(fn);
