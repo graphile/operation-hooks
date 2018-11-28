@@ -34,42 +34,6 @@ export type OperationHookGenerator = (
   fieldContext: Context<any>
 ) => OperationHook;
 
-function getCallbacksForContext(
-  hookGenerators: OperationHookGenerator[],
-  context: Context<any>
-): null | {
-  before: OperationHookCallback[];
-  after: OperationHookCallback[];
-  error: OperationHookCallback<Error>[];
-} {
-  const allHooks: OperationHook[] = hookGenerators
-    .map(gen => gen(context))
-    .filter(_ => _);
-  const before: OperationHookEntry[] = [];
-  const after: OperationHookEntry[] = [];
-  const error: OperationHookEntry<Error>[] = [];
-  allHooks.forEach(oneHook => {
-    if (oneHook.before) {
-      before.push(...oneHook.before);
-    }
-    if (oneHook.after) {
-      after.push(...oneHook.after);
-    }
-    if (oneHook.error) {
-      error.push(...oneHook.error);
-    }
-  });
-  if (before!.length === 0 && after!.length === 0 && error!.length === 0) {
-    return null;
-  }
-  // Now sort them
-  return {
-    before: before.map(hook => hook.callback),
-    after: after.map(hook => hook.callback),
-    error: error.map(hook => hook.callback),
-  };
-}
-
 async function applyHooks<T, TArgs>(
   hooks: OperationHookCallback[],
   input: T,
@@ -91,19 +55,75 @@ async function applyHooks<T, TArgs>(
   return output;
 }
 
+function hookSort(a: OperationHookEntry, b: OperationHookEntry): number {
+  return a.priority - b.priority;
+}
+
 const OperationHooksPlugin: Plugin = function OperationHooksPlugin(builder) {
   builder.hook("build", build => {
     const _operationHookGenerators: OperationHookGenerator[] = [];
+    let locked = false;
     return build.extend(build, {
-      _operationHookGenerators,
       addOperationHook(fn: OperationHookGenerator) {
+        if (locked) {
+          throw new Error(
+            "Attempted to register operation hook after a hook was applied"
+          );
+        }
         _operationHookGenerators.push(fn);
+      },
+
+      _getOperationHookCallbacksForContext(
+        context: Context<any>
+      ): null | {
+        before: OperationHookCallback[];
+        after: OperationHookCallback[];
+        error: OperationHookCallback<Error>[];
+      } {
+        // Don't allow any more hooks to be registered now that one is being applied.
+        locked = true;
+
+        // Generate the hooks, and aggregate into before/after/error arrays
+        const generatedHooks: OperationHook[] = _operationHookGenerators
+          .map(gen => gen(context))
+          .filter(_ => _);
+        const before: OperationHookEntry[] = [];
+        const after: OperationHookEntry[] = [];
+        const error: OperationHookEntry<Error>[] = [];
+        generatedHooks.forEach(oneHook => {
+          if (oneHook.before) {
+            before.push(...oneHook.before);
+          }
+          if (oneHook.after) {
+            after.push(...oneHook.after);
+          }
+          if (oneHook.error) {
+            error.push(...oneHook.error);
+          }
+        });
+
+        // No relevant hooks, don't bother wrapping the resolver
+        if (before.length === 0 && after.length === 0 && error.length === 0) {
+          return null;
+        }
+
+        // Sort the hooks based on their priority (remember sort() mutates the arrays)
+        before.sort(hookSort);
+        after.sort(hookSort);
+        error.sort(hookSort);
+
+        // Return the relevant callbacks
+        return {
+          before: before.map(hook => hook.callback),
+          after: after.map(hook => hook.callback),
+          error: error.map(hook => hook.callback),
+        };
       },
     });
   });
 
   builder.hook("GraphQLObjectType:fields:field", (field, build, context) => {
-    const { _operationHookGenerators } = build;
+    const { _getOperationHookCallbacksForContext } = build;
     const {
       Self,
       scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription },
@@ -115,7 +135,7 @@ const OperationHooksPlugin: Plugin = function OperationHooksPlugin(builder) {
     }
 
     // Get the hook for this context
-    const callbacks = getCallbacksForContext(_operationHookGenerators, context);
+    const callbacks = _getOperationHookCallbacksForContext(context);
     if (!callbacks) {
       return field;
     }
@@ -181,20 +201,21 @@ const OperationHooksPlugin: Plugin = function OperationHooksPlugin(builder) {
     };
     resolve["__asyncHooks"] = true;
 
+    // Finally override the resolve method
     return {
       ...field,
       resolve,
     };
   });
 
+  // Ensure all the resolvers have been wrapped (i.e. sanity check)
   builder.hook("finalize", schema => {
-    // Ensure all the resolvers have been wrapped (i.e. sanity check)
+    const missingHooks: String[] = [];
     const types = [
       schema.getQueryType(),
       schema.getMutationType(),
       schema.getSubscriptionType(),
     ].filter(_ => _);
-    const missingHooks: String[] = [];
     types.forEach((type: GraphQLObjectType) => {
       const fields = type.getFields();
       for (const field of Object.values(fields)) {
@@ -204,6 +225,7 @@ const OperationHooksPlugin: Plugin = function OperationHooksPlugin(builder) {
         }
       }
     });
+
     if (missingHooks.length) {
       throw new Error(
         `Schema validation error: operation hooks were not added to the following fields: ${missingHooks.join(
