@@ -16,7 +16,7 @@ export type OperationHookCallback<
   input: T,
   args: TArgs,
   context: any,
-  resolveInfo: GraphQLResolveInfo
+  resolveInfo: GraphQLResolveInfoWithMeta
 ) => T | null | Promise<T | null>;
 
 export interface OperationHookEntry<T = any> {

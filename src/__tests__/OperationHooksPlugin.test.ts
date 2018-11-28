@@ -1,25 +1,10 @@
-import OperationHooksPlugin, {
+import {
   OperationHookCallback,
   OperationHookGenerator,
 } from "../OperationHooksPlugin";
-import { Plugin, buildSchema, defaultPlugins } from "graphile-build";
+import { Plugin } from "graphile-build";
 import { graphql } from "graphql";
-import { gql, makeExtendSchemaPlugin } from "graphile-utils";
-
-const EchoPlugin = makeExtendSchemaPlugin(() => ({
-  typeDefs: gql`
-    extend type Query {
-      echo(message: String!): String @scope(isEchoField: true)
-    }
-  `,
-  resolvers: {
-    Query: {
-      echo(_, { message }) {
-        return message;
-      },
-    },
-  },
-}));
+import { EchoHiQuery, getSchema } from "./common";
 
 const UndoHooksPlugin: Plugin = builder => {
   builder.hook("GraphQLObjectType:fields:field", field => {
@@ -49,31 +34,16 @@ const makeHookPlugin = (
   });
 };
 
-const getSchema = (morePlugins: Plugin[] = []) =>
-  buildSchema(
-    [...defaultPlugins, EchoPlugin, OperationHooksPlugin, ...morePlugins],
-    {}
-  );
-
-const EchoHiQuery = `
-  {
-    echo(message: "Hi")
-  }
-`;
-
 test("checks all resolvers are wrapped", async () => {
   let err;
   try {
-    await buildSchema(
-      [...defaultPlugins, OperationHooksPlugin, UndoHooksPlugin],
-      {}
-    );
+    await getSchema([UndoHooksPlugin]);
   } catch (e) {
     err = e;
   }
   expect(err).toBeTruthy();
   expect(err).toMatchInlineSnapshot(
-    `[Error: Schema validation error: operation hooks were not added to the following fields: Query.query, Query.id, Query.node]`
+    `[Error: Schema validation error: operation hooks were not added to the following fields: Query.query, Query.id, Query.node, Query.echo]`
   );
 });
 
