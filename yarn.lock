@@ -1407,7 +1407,7 @@ graphile-build-pg@4.1.0-rc.2:
     pg-sql2 "2.2.1"
     postgres-interval "^1.1.1"
 
-graphile-build@4.1.0-rc.2:
+graphile-build@4.1.0-rc.2, graphile-build@^4.1.0-rc.2:
   version "4.1.0-rc.2"
   resolved "https://registry.yarnpkg.com/graphile-build/-/graphile-build-4.1.0-rc.2.tgz#71749419a92d2126eff1bddb72f1b6169494fed8"
   integrity sha512-pNRvAWerwDmRGJP7alyevUum/K9fBkJcH3oQb9gEo0R0TVFEId5T4Ccfq5wc0vogazEvJ7oSyNN4PIryPDHbbw==
@@ -1421,13 +1421,13 @@ graphile-build@4.1.0-rc.2:
     pluralize "^7.0.0"
     semver "^5.6.0"
 
-graphile-utils@^4.0.1:
-  version "4.0.1"
-  resolved "https://registry.yarnpkg.com/graphile-utils/-/graphile-utils-4.0.1.tgz#c8ef4156595874e1908c865504708a636a575a3e"
-  integrity sha512-zWU4dtt+bSuuO65morDlto4q2FvKZpbyO7o6fZu5vFOMlcMQLFzB7BejegUtQAdSZHY0qhT4LuSHccTWJsMisg==
+graphile-utils@^4.1.0-rc.2:
+  version "4.1.0-rc.2"
+  resolved "https://registry.yarnpkg.com/graphile-utils/-/graphile-utils-4.1.0-rc.2.tgz#b10155d25b81674061281853ee80a25cf6df28a3"
+  integrity sha512-1LlxF3H2YGcZfcHKNMrmTP5rw5DUb2cR0NCHn0+/tZwHcsg+SEuf6L9W7L/GYoKRRZJLTjchP1XqLMOSnDWL0Q==
   dependencies:
     debug ">=2 <3"
-    graphql ">=0.9 <0.14"
+    graphql ">=0.9 <0.14 || ^14.0.2"
 
 graphql-iso-date@^3.6.0:
   version "3.6.1"
@@ -1442,14 +1442,7 @@ graphql-parse-resolve-info@4.1.0-rc.2:
     "@types/graphql" "^14.0.3"
     debug ">=2 <3"
 
-"graphql@>=0.9 <0.14":
-  version "0.13.2"
-  resolved "https://registry.yarnpkg.com/graphql/-/graphql-0.13.2.tgz#4c740ae3c222823e7004096f832e7b93b2108270"
-  integrity sha512-QZ5BL8ZO/B20VA8APauGBg3GyEgZ19eduvpLWoq5x7gMmWnHoy8rlQWPLmWgFvo1yNgjSEFMesmS4R6pPr7xog==
-  dependencies:
-    iterall "^1.2.1"
-
-"graphql@^0.6.0 || ^0.7.0 || ^0.8.0-b || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.2":
+"graphql@>=0.9 <0.14 || ^14.0.2", "graphql@^0.6.0 || ^0.7.0 || ^0.8.0-b || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.2":
   version "14.0.2"
   resolved "https://registry.yarnpkg.com/graphql/-/graphql-14.0.2.tgz#7dded337a4c3fd2d075692323384034b357f5650"
   integrity sha512-gUC4YYsaiSJT1h40krG3J+USGlwhzNTXSb4IOZljn9ag5Tj+RkoXrWp+Kh7WyE3t1NCfab5kzCuxBIvOMERMXw==
@@ -1971,7 +1964,7 @@ istanbul-reports@^1.5.1:
   dependencies:
     handlebars "^4.0.3"
 
-iterall@^1.2.1, iterall@^1.2.2:
+iterall@^1.2.2:
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/iterall/-/iterall-1.2.2.tgz#92d70deb8028e0c39ff3164fdbf4d8b088130cd7"
   integrity sha512-yynBb1g+RFUPY64fTrFv7nsjRrENBQJaX2UL+2Szc9REFrSNm1rpSXHGzhmAy7a9uv3vlvgBlXnf9RqmPH1/DA==
