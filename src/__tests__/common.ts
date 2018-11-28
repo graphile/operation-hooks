@@ -4,7 +4,8 @@ import OperationHooksPlugin, {
   OperationHookCallback,
   OperationHookGenerator,
 } from "../OperationHooksPlugin";
-import MutationMessagesPlugin from "../MutationMessagesPlugin";
+import OperationMessagesPlugin from "../OperationMessagesPlugin";
+import OperationMessagesMutationPayloadPlugin from "../OperationMessagesMutationPayloadPlugin";
 
 export const EchoPlugin = makeExtendSchemaPlugin(build => ({
   typeDefs: gql`
@@ -16,8 +17,7 @@ export const EchoPlugin = makeExtendSchemaPlugin(build => ({
       message: String!
     }
 
-    type EchoPayload {
-      query: Query
+    type EchoPayload @scope(isMutationPayload: true) {
       message: String
     }
 
@@ -48,7 +48,9 @@ export function getSchema(morePlugins: Plugin[] = []) {
       ...defaultPlugins,
       EchoPlugin,
       OperationHooksPlugin,
-      MutationMessagesPlugin,
+      OperationMessagesPlugin,
+      // TODO: database messages plugin here
+      OperationMessagesMutationPayloadPlugin,
       ...morePlugins,
     ],
     {}
@@ -65,6 +67,11 @@ export const EchoHiMutation = `
   mutation {
     echo(input: { message: "Hi" }) {
       message
+      messages {
+        __typename
+        level
+        message
+      }
     }
   }
 `;

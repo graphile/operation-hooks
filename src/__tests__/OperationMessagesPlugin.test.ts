@@ -1,6 +1,6 @@
 import { graphql } from "graphql";
 import { getSchema, makeHookPlugin, EchoHiMutation } from "./common";
-import { GraphQLResolveInfoWithMessages } from "../MutationMessagesPlugin";
+import { GraphQLResolveInfoWithMessages } from "../OperationMessagesPlugin";
 
 test("creates messages on meta", async () => {
   let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
@@ -32,6 +32,13 @@ Object {
   "data": Object {
     "echo": Object {
       "message": "Hi",
+      "messages": Array [
+        Object {
+          "__typename": "OperationMessage",
+          "level": "info",
+          "message": "All good",
+        },
+      ],
     },
   },
 }
@@ -79,6 +86,68 @@ Object {
     Object {
       "level": "info",
       "message": "General information.",
+    },
+  ],
+}
+`);
+});
+
+test("collects messages from before and after mutation and exposes on the payload", async () => {
+  const schema = await getSchema([
+    makeHookPlugin(
+      (input, _args, _context, resolveInfo: GraphQLResolveInfoWithMessages) => {
+        resolveInfo.graphileMeta.messages.push({
+          level: "info",
+          message: "Information from before",
+        });
+        resolveInfo.graphileMeta.messages.push({
+          level: "warn",
+          message: "Warning from before",
+        });
+        return input;
+      }
+    ),
+    makeHookPlugin(
+      (input, _args, _context, resolveInfo: GraphQLResolveInfoWithMessages) => {
+        resolveInfo.graphileMeta.messages.push({
+          level: "info",
+          message: "Information from after",
+        });
+        resolveInfo.graphileMeta.messages.push({
+          level: "info",
+          message: "More information from after",
+        });
+        return input;
+      },
+      "after"
+    ),
+  ]);
+  const result = await graphql(schema, EchoHiMutation);
+  expect(result.errors).toBeFalsy();
+  expect(result.data).toBeTruthy();
+  expect(result.data!.echo).toMatchInlineSnapshot(`
+Object {
+  "message": "Hi",
+  "messages": Array [
+    Object {
+      "__typename": "OperationMessage",
+      "level": "info",
+      "message": "Information from before",
+    },
+    Object {
+      "__typename": "OperationMessage",
+      "level": "warn",
+      "message": "Warning from before",
+    },
+    Object {
+      "__typename": "OperationMessage",
+      "level": "info",
+      "message": "Information from after",
+    },
+    Object {
+      "__typename": "OperationMessage",
+      "level": "info",
+      "message": "More information from after",
     },
   ],
 }
