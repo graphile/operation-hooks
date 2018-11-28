@@ -1,4 +1,4 @@
-import { Plugin, Context } from "graphile-build";
+import { Plugin } from "graphile-build";
 import {
   OperationHookCallback,
   GraphQLResolveInfoWithMeta,
@@ -10,7 +10,8 @@ interface Message {
   path?: string[];
 }
 
-interface GraphQLResolveInfoWithMessages extends GraphQLResolveInfoWithMeta {
+export interface GraphQLResolveInfoWithMessages
+  extends GraphQLResolveInfoWithMeta {
   graphileMeta: {
     messages: Message[];
   };
@@ -58,13 +59,7 @@ const MutationMessagesPlugin: Plugin = function MutationMessagesPlugin(
   builder
 ) {
   builder.hook("init", (_, build) => {
-    build.addOperationHook((fieldContext: Context<any>) => {
-      const {
-        scope: { isRootMutation },
-      } = fieldContext;
-      if (!isRootMutation) {
-        return null;
-      }
+    build.addOperationHook(() => {
       return {
         before: [
           { priority: 100, callback: addMessagesToMeta },
