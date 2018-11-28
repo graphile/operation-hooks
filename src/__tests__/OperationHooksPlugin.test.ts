@@ -20,7 +20,7 @@ test("checks all resolvers are wrapped", async () => {
   }
   expect(err).toBeTruthy();
   expect(err).toMatchInlineSnapshot(
-    `[Error: Schema validation error: operation hooks were not added to the following fields: Query.query, Query.id, Query.node, Query.echo]`
+    `[Error: Schema validation error: operation hooks were not added to the following fields: Query.query, Query.id, Query.node, Query.echo, Mutation.echo]`
   );
 });
 

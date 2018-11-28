@@ -34,7 +34,7 @@ const validateMessages: OperationHookCallback = (
   resolveInfo: GraphQLResolveInfoWithMessages
 ) => {
   const firstError = resolveInfo.graphileMeta.messages.find(
-    message => message.level === "ERROR"
+    message => message.level === "error"
   );
   if (firstError) {
     throw new Error(

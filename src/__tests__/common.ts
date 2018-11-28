@@ -6,16 +6,37 @@ import OperationHooksPlugin, {
 } from "../OperationHooksPlugin";
 import MutationMessagesPlugin from "../MutationMessagesPlugin";
 
-export const EchoPlugin = makeExtendSchemaPlugin(() => ({
+export const EchoPlugin = makeExtendSchemaPlugin(build => ({
   typeDefs: gql`
     extend type Query {
-      echo(message: String!): String @scope(isEchoField: true)
+      echo(message: String!): String @scope(isEchoQuery: true)
+    }
+
+    input EchoInput {
+      message: String!
+    }
+
+    type EchoPayload {
+      query: Query
+      message: String
+    }
+
+    extend type Mutation {
+      echo(input: EchoInput!): EchoPayload @scope(isEchoMutation: true)
     }
   `,
   resolvers: {
     Query: {
       echo(_, { message }) {
         return message;
+      },
+    },
+    Mutation: {
+      echo(_, { input: { message } }) {
+        return {
+          query: build.$$isQuery,
+          message,
+        };
       },
     },
   },
@@ -37,6 +58,14 @@ export function getSchema(morePlugins: Plugin[] = []) {
 export const EchoHiQuery = `
   {
     echo(message: "Hi")
+  }
+`;
+
+export const EchoHiMutation = `
+  mutation {
+    echo(input: { message: "Hi" }) {
+      message
+    }
   }
 `;
 
