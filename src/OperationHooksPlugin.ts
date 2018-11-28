@@ -34,6 +34,7 @@ export type OperationHookGenerator = (
   fieldContext: Context<any>
 ) => OperationHook;
 
+// Hooks are applied one after the other, in an asynchronous chain.
 async function applyHooks<T, TArgs>(
   hooks: OperationHookCallback[],
   input: T,
@@ -44,12 +45,13 @@ async function applyHooks<T, TArgs>(
   let output: T | null = input;
   for (const hook of hooks) {
     output = await hook(output, args, context, resolveInfo);
+    if (output === undefined) {
+      throw new Error("Logic error: operation hook returned 'undefined'.");
+    }
+
     // Nulls return early
     if (output === null) {
       return null;
-    }
-    if (output === undefined) {
-      throw new Error("Logic error: operation hook returned 'undefined'.");
     }
   }
   return output;
