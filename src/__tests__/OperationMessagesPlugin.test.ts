@@ -39,6 +39,7 @@ Object {
           "message": "All good",
         },
       ],
+      "preFlight": false,
     },
   },
 }
@@ -150,6 +151,62 @@ Object {
       "message": "More information from after",
     },
   ],
+  "preFlight": false,
+}
+`);
+});
+
+test("on preflight, collects messages from before mutation then exits", async () => {
+  const schema = await getSchema([
+    makeHookPlugin(
+      (input, _args, _context, resolveInfo: GraphQLResolveInfoWithMessages) => {
+        resolveInfo.graphileMeta.messages.push({
+          level: "info",
+          message: "Information from before",
+        });
+        resolveInfo.graphileMeta.messages.push({
+          level: "warn",
+          message: "Warning from before",
+        });
+        return input;
+      }
+    ),
+    makeHookPlugin(
+      (input, _args, _context, resolveInfo: GraphQLResolveInfoWithMessages) => {
+        resolveInfo.graphileMeta.messages.push({
+          level: "info",
+          message: "Information from after",
+        });
+        resolveInfo.graphileMeta.messages.push({
+          level: "info",
+          message: "More information from after",
+        });
+        return input;
+      },
+      "after"
+    ),
+  ]);
+  const result = await graphql(schema, EchoHiMutation, null, null, {
+    preFlight: true,
+  });
+  expect(result.errors).toBeFalsy();
+  expect(result.data).toBeTruthy();
+  expect(result.data!.echo).toMatchInlineSnapshot(`
+Object {
+  "message": null,
+  "messages": Array [
+    Object {
+      "__typename": "OperationMessage",
+      "level": "info",
+      "message": "Information from before",
+    },
+    Object {
+      "__typename": "OperationMessage",
+      "level": "warn",
+      "message": "Warning from before",
+    },
+  ],
+  "preFlight": true,
 }
 `);
 });

@@ -6,6 +6,7 @@ import OperationHooksPlugin, {
 } from "../OperationHooksPlugin";
 import OperationMessagesPlugin from "../OperationMessagesPlugin";
 import OperationMessagesMutationPayloadPlugin from "../OperationMessagesMutationPayloadPlugin";
+import OperationMessagesMutationPreFlightPlugin from "../OperationMessagesMutationPreFlightPlugin";
 
 export const EchoPlugin = makeExtendSchemaPlugin(build => ({
   typeDefs: gql`
@@ -51,6 +52,7 @@ export function getSchema(morePlugins: Plugin[] = []) {
       OperationMessagesPlugin,
       // TODO: database messages plugin here
       OperationMessagesMutationPayloadPlugin,
+      OperationMessagesMutationPreFlightPlugin,
       ...morePlugins,
     ],
     {}
@@ -58,20 +60,21 @@ export function getSchema(morePlugins: Plugin[] = []) {
 }
 
 export const EchoHiQuery = `
-  {
+  query EchoHiQuery {
     echo(message: "Hi")
   }
 `;
 
 export const EchoHiMutation = `
-  mutation {
-    echo(input: { message: "Hi" }) {
+  mutation EchoHiMutation ($preFlight: Boolean) {
+    echo(input: { message: "Hi" }, preFlight: $preFlight) {
       message
       messages {
         __typename
         level
         message
       }
+      preFlight
     }
   }
 `;

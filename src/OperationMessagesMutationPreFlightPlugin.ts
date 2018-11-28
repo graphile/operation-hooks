@@ -1,0 +1,79 @@
+import { Plugin, Context } from "graphile-build";
+import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
+
+const OperationMessagesMutationPreFlightPlugin: Plugin = function OperationMessagesMutationPreFlightPlugin(
+  builder
+) {
+  builder.hook("init", (_, build) => {
+    build.addOperationHook((fieldContext: Context<any>) => {
+      const {
+        scope: { isRootMutation },
+      } = fieldContext;
+      if (!isRootMutation) {
+        return null;
+      }
+      return {
+        before: [
+          {
+            // Right at the end
+            priority: 990,
+            callback: (
+              input: any,
+              args: { [key: string]: any },
+              _context: any,
+              resolveInfo: GraphQLResolveInfoWithMessages
+            ) =>
+              args.preFlight
+                ? {
+                    preFlight: true,
+                    query: build.$$isQuery,
+                    ["#messages"]: resolveInfo.graphileMeta.messages,
+                  }
+                : input,
+          },
+        ],
+      };
+    });
+    return _;
+  });
+
+  builder.hook("GraphQLObjectType:fields", (fields, build, context) => {
+    const {
+      graphql: { GraphQLBoolean, GraphQLNonNull },
+    } = build;
+    const {
+      scope: { isMutationPayload },
+    } = context;
+    if (!isMutationPayload) {
+      return fields;
+    }
+    return build.extend(fields, {
+      preFlight: {
+        type: new GraphQLNonNull(GraphQLBoolean),
+        resolve: (parent: any) => parent && !!parent.preFlight,
+      },
+    });
+  });
+
+  builder.hook(
+    "GraphQLObjectType:fields:field:args",
+    (args, build, context) => {
+      const {
+        graphql: { GraphQLBoolean },
+      } = build;
+      const {
+        scope: { isRootMutation },
+      } = context;
+      if (!isRootMutation) {
+        return args;
+      }
+      return build.extend(args, {
+        preFlight: {
+          type: GraphQLBoolean,
+        },
+      });
+    }
+  );
+};
+
+export default OperationMessagesMutationPreFlightPlugin;
