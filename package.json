@@ -38,5 +38,8 @@
   },
   "dependencies": {
     "graphile-utils": "^4.0.1"
+  },
+  "prettier": {
+    "trailingComma": "es5"
   }
 }
