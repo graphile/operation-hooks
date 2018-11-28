@@ -27,8 +27,9 @@ test("checks all resolvers are wrapped", async () => {
 test("calls hooks the correct number of times", async () => {
   let called = 0;
   const schema = await getSchema([
-    makeHookPlugin(() => {
+    makeHookPlugin(input => {
       called++;
+      return input;
     }),
   ]);
   expect(called).toEqual(0);
@@ -37,11 +38,8 @@ test("calls hooks the correct number of times", async () => {
   expect(data).toMatchInlineSnapshot(`
 Object {
   "data": Object {
-    "echo": null,
+    "echo": "Hi",
   },
-  "errors": Array [
-    [GraphQLError: Logic error: operation hook returned 'undefined'.],
-  ],
 }
 `);
 });
@@ -123,4 +121,19 @@ test("throws error if hook is registered after hooks have been called", async ()
   expect(err).toMatchInlineSnapshot(
     `[Error: Attempted to register operation hook after a hook was applied; this indicates an issue with the ordering of your plugins. Ensure that the OperationHooksPlugin and anything that depends on it come at the end of the plugins list.]`
   );
+});
+
+test("throws error if hook returns undefined", async () => {
+  const schema = await getSchema([
+    makeHookPlugin(() => {
+      return;
+    }, "after"),
+  ]);
+  const result = await graphql(schema, EchoHiQuery);
+  expect(result.errors).toBeTruthy();
+  expect(result.errors).toMatchInlineSnapshot(`
+Array [
+  [GraphQLError: Logic error: operation hook returned 'undefined'.],
+]
+`);
 });
