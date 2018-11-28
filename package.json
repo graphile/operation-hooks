@@ -2,7 +2,7 @@
   "name": "@graphile/operation-hooks",
   "version": "0.1.0",
   "description": "Register asynchronous callbacks before/after operations; uses include: validation, authorization, notification",
-  "main": "dist/index.js",
+  "main": "lib/index.js",
   "scripts": {
     "test": "jest"
   },
