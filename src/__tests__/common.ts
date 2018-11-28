@@ -1,6 +1,9 @@
 import { gql, makeExtendSchemaPlugin } from "graphile-utils";
 import { Plugin, buildSchema, defaultPlugins } from "graphile-build";
-import OperationHooksPlugin from "../OperationHooksPlugin";
+import OperationHooksPlugin, {
+  OperationHookCallback,
+  OperationHookGenerator,
+} from "../OperationHooksPlugin";
 import MutationMessagesPlugin from "../MutationMessagesPlugin";
 
 export const EchoPlugin = makeExtendSchemaPlugin(() => ({
@@ -36,3 +39,22 @@ export const EchoHiQuery = `
     echo(message: "Hi")
   }
 `;
+
+export const makeHookPlugin = (
+  callback: OperationHookCallback,
+  when: "before" | "after" | "error" = "before",
+  priority = 500
+): Plugin => builder => {
+  builder.hook("init", (_, build) => {
+    const hookForContext: OperationHookGenerator = _fieldContext => ({
+      [when]: [
+        {
+          priority,
+          callback,
+        },
+      ],
+    });
+    build.addOperationHook(hookForContext);
+    return _;
+  });
+};

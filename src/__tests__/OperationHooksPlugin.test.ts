@@ -1,10 +1,6 @@
-import {
-  OperationHookCallback,
-  OperationHookGenerator,
-} from "../OperationHooksPlugin";
 import { Plugin } from "graphile-build";
-import { graphql } from "graphql";
-import { EchoHiQuery, getSchema } from "./common";
+import { graphql, __InputValue } from "graphql";
+import { EchoHiQuery, getSchema, makeHookPlugin } from "./common";
 
 const UndoHooksPlugin: Plugin = builder => {
   builder.hook("GraphQLObjectType:fields:field", field => {
@@ -12,25 +8,6 @@ const UndoHooksPlugin: Plugin = builder => {
       delete field.resolve["__asyncHooks"];
     }
     return field;
-  });
-};
-
-const makeHookPlugin = (
-  callback: OperationHookCallback,
-  when: "before" | "after" | "error" = "before",
-  priority = 500
-): Plugin => builder => {
-  builder.hook("init", (_, build) => {
-    const hookForContext: OperationHookGenerator = _fieldContext => ({
-      [when]: [
-        {
-          priority,
-          callback,
-        },
-      ],
-    });
-    build.addOperationHook(hookForContext);
-    return _;
   });
 };
 
