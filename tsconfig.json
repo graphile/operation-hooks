@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "declaration": true,
-    "declarationDir": "./lib",
     "allowJs": false,
     "rootDir": "src",
     "outDir": "lib",
@@ -16,5 +15,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUnusedParameters": true,
     "noUnusedLocals": true
-  }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/__tests__/*"]
 }

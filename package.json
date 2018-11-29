@@ -4,6 +4,7 @@
   "description": "Register asynchronous callbacks before/after operations; uses include: validation, authorization, notification",
   "main": "lib/index.js",
   "scripts": {
+    "build": "rm -vrf lib && tsc",
     "test": "jest"
   },
   "repository": {
