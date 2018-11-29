@@ -212,7 +212,7 @@ create type mutation_message as (
   code text
 );
 
-create function "__mutation_createUser_before"(input jsonb)
+create function "mutation_createUser_before"(input jsonb)
 returns mutation_message[]
 as $$
   select array[(
@@ -222,21 +222,20 @@ as $$
     '501'
   )::mutation_message];
 $$ language sql stable;
-comment on function "__mutation_createUser_before"(jsonb) is E'@omit';
+comment on function "mutation_createUser_before"(jsonb) is E'@omit';
 ```
 
-(To see this working, run this SQL: `select * from unnest("__createUser_before"('{}'::jsonb));`)
+(To see this working, run this SQL: `select * from unnest("mutation_createUser_before"('{}'::jsonb));`)
 
 ### SQL operation callback naming convention
 
 By default we use the following naming convention:
 
-- start with `__` (two underscores) in order to avoid being exposed by PostGraphile
-- followed by the GraphQL operation type and an underscore (e.g. `mutation_`)
+- start with the GraphQL operation type and an underscore (e.g. `mutation_`)
 - followed by the GraphQL mutation name (e.g. `createUser`)
 - followed by `_before` or `_after` to indicate when it runs
 
-e.g. `"__mutation_createUser_before"`
+e.g. `"mutation_createUser_before"`
 
 You can override this using the inflector `pgOperationHookFunctionName`:
 
@@ -258,7 +257,7 @@ module.exports = makeAddInflectorsPlugin(
       if (operationType === null) {
         throw new Error("Invalid fieldContext passed to inflector");
       }
-      return `__${operationType}_${fieldName}_${when.toLowerCase()}`;
+      return `${operationType}_${fieldName}_${when.toLowerCase()}`;
     },
   },
   true

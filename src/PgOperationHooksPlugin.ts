@@ -54,7 +54,10 @@ function sqlFunctionToCallback(
 
     // Process the results, add to messages
     console.log(rows); // TODO
-    messages.push({ level: "info", message: "TODO!" });
+    messages.push({
+      level: "info",
+      message: "TODO! IF THIS IS IN A SNAPSHOT IT'S AN ERROR!",
+    });
 
     // Return input unmodified
     return input;
@@ -67,7 +70,7 @@ function getCallSQLFunction(
   when: BeforeOrAfter
 ): OperationHookCallback | null {
   const name = build.inflection.pgOperationHookFunctionName(fieldContext, when);
-  const sqlFunction = build.pgIntrospectionByKind.proc.find(
+  const sqlFunction = build.pgIntrospectionResultsByKind.procedure.find(
     (proc: PgProc) => proc.name === name
   );
   if (sqlFunction) {
@@ -99,12 +102,12 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
         if (operationType === null) {
           throw new Error("Invalid fieldContext passed to inflector");
         }
-        return `__${operationType}_${fieldName}_${when.toLowerCase()}`;
+        return `${operationType}_${fieldName}_${when.toLowerCase()}`;
       },
     })
   );
   builder.hook("init", (_, build) => {
-    if (!build.pgIntrospectionByKind) {
+    if (!build.pgIntrospectionResultsByKind) {
       // Clearly we're not running in PostGraphile, abort.
       return _;
     }
@@ -120,6 +123,9 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
         fieldContext,
         "after"
       );
+      if (!callAfterSQLFunction && !callBeforeSQLFunction) {
+        return null;
+      }
       if (callBeforeSQLFunction) {
         hook.before!.push({ priority: 500, callback: callBeforeSQLFunction });
       }
