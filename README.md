@@ -23,15 +23,24 @@ Subscription types) and can:
 PostGraphile CLI:
 
 ```bash
-postgraphile --plugins @graphile/operation-hooks
+postgraphile \
+  --plugins @graphile/operation-hooks \
+  --operation-messages \
+  --operation-messages-preflight
 ```
+
+(`--operation-messages` exposes generated messages on mutation payloads and
+GraphQL error objects; `--operation-messages-preflight` adds a preflight
+option to mutations which allows the pre-mutation checks to run (and messages
+to be generates) but does not actually perform the mutation.)
 
 PostGraphile library:
 
 ```js
-const http = require("http"); // Or use Express or whatever
 const { postgraphile, makePluginHook } = require("postgraphile");
 
+// This is how we load server plugins into PostGraphile
+// See: https://www.graphile.org/postgraphile/plugins/
 const pluginHook = makePluginHook([
   require("@graphile/operation-hooks"),
   // Any more PostGraphile server plugins here
@@ -39,10 +48,15 @@ const pluginHook = makePluginHook([
 
 const postGraphileMiddleware = postgraphile(DATABASE_URL, SCHEMA_NAME, {
   pluginHook,
+  operationMessages: true,
+  operationMessagesPreflight: true,
   // ...
 });
 
-http.createServer(postGraphileMiddleware).listen(5000);
+// This example uses `http` but you can use Express, Koa, etc.
+require("http")
+  .createServer(postGraphileMiddleware)
+  .listen(5000);
 ```
 
 If you want to just use the Graphile Engine plugins without the PostGraphile
@@ -121,7 +135,7 @@ the before/after hooks to cause side effects, or possibly raise 'error'
 messages), you may use the CLI flag `--operation-messages` or library config
 `operationMessages: true`. Doing so will extend the mutation payloads in your
 GraphQL schema with a `messages` entry, a list of the messages raised, and
-will also expose relevant messages on any GraphQL errors that are throw.
+will also expose relevant messages on any thrown GraphQL errors.
 
 We will define an `OperationMessageInterface` interface that all messages
 must conform to:
@@ -204,6 +218,7 @@ as $$
     '501'
   )::mutation_message];
 $$ language sql stable;
+
 comment on function "mutation_createUser_before"(jsonb) is E'@omit';
 ```
 
@@ -223,6 +238,7 @@ You can override this using the inflector `pgOperationHookFunctionName`:
 
 ```js
 const { makeAddInflectorsPlugin } = require("graphile-utils");
+
 module.exports = makeAddInflectorsPlugin(
   {
     pgOperationHookFunctionName: (fieldContext, when) => {
@@ -248,7 +264,8 @@ module.exports = makeAddInflectorsPlugin(
 
 ## Implemeting operation hooks in JavaScript
 
-You can also implement hooks in JavaScript. To do so, you use the
+You can also implement hooks in JavaScript (the SQL hooks are actually
+implemented using the JavaScript interface). To do so, you use the
 `addOperationHook` API introduced by this plugin. This allows you to write a
 single function that handles all root-level queries, mutations and
 subscriptions; it's then your responsibility to filter this down to what you
@@ -345,3 +362,23 @@ export default function MyOperationHookPlugin(builder) {
 Don't try and use this for things like field masking since there's a lot of
 different ways a user can access a field in GraphQL. Field masking should be solved via
 `makeWrapResolversPlugin` or similar approach instead.
+
+This is a young plugin, it will evolve over time.
+
+We don't currently have a neat way for adding other types to the
+OperationMessageInterface, so if you really need to expose additional fields,
+you can do it using a schema extension:
+
+```js
+const { gql, makeExtendSchemaPlugin } = require("graphile-utils");
+
+module.exports = makeExtendSchemaPlugin(() => ({
+  typedefs: gql`
+    extend type OperationMessage {
+      anotherField: String
+      yetAnotherField: Float
+    }
+  `,
+  resolvers: {},
+}));
+```
