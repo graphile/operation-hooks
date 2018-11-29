@@ -23,9 +23,9 @@ const OperationMessagesMutationPreFlightPlugin: Plugin = function OperationMessa
               _context: any,
               resolveInfo: GraphQLResolveInfoWithMessages
             ) =>
-              args.preFlight
+              args.preflight
                 ? {
-                    preFlight: true,
+                    preflight: true,
                     query: build.$$isQuery,
                     ["#messages"]: resolveInfo.graphileMeta.messages,
                   }
@@ -48,9 +48,9 @@ const OperationMessagesMutationPreFlightPlugin: Plugin = function OperationMessa
       return fields;
     }
     return build.extend(fields, {
-      preFlight: {
+      preflight: {
         type: new GraphQLNonNull(GraphQLBoolean),
-        resolve: (parent: any) => parent && !!parent.preFlight,
+        resolve: (parent: any) => parent && !!parent.preflight,
       },
     });
   });
@@ -68,7 +68,7 @@ const OperationMessagesMutationPreFlightPlugin: Plugin = function OperationMessa
         return args;
       }
       return build.extend(args, {
-        preFlight: {
+        preflight: {
           type: GraphQLBoolean,
         },
       });

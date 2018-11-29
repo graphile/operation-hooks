@@ -39,7 +39,7 @@ Object {
           "message": "All good",
         },
       ],
-      "preFlight": false,
+      "preflight": false,
     },
   },
 }
@@ -151,7 +151,7 @@ Object {
       "message": "More information from after",
     },
   ],
-  "preFlight": false,
+  "preflight": false,
 }
 `);
 });
@@ -187,7 +187,7 @@ test("on preflight, collects messages from before mutation then exits", async ()
     ),
   ]);
   const result = await graphql(schema, EchoHiMutation, null, null, {
-    preFlight: true,
+    preflight: true,
   });
   expect(result.errors).toBeFalsy();
   expect(result.data).toBeTruthy();
@@ -206,7 +206,7 @@ Object {
       "message": "Warning from before",
     },
   ],
-  "preFlight": true,
+  "preflight": true,
 }
 `);
 });

@@ -54,15 +54,15 @@ export const EchoHiQuery = `
 `;
 
 export const EchoHiMutation = `
-  mutation EchoHiMutation ($preFlight: Boolean) {
-    echo(input: { message: "Hi" }, preFlight: $preFlight) {
+  mutation EchoHiMutation ($preflight: Boolean) {
+    echo(input: { message: "Hi" }, preflight: $preflight) {
       message
       messages {
         __typename
         level
         message
       }
-      preFlight
+      preflight
     }
   }
 `;
