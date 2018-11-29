@@ -102,6 +102,10 @@ function postgraphql(
 
 const getPostGraphileSchema = (plugins: Plugin[] = []) =>
   createPostGraphileSchema(pgPool, "operation_hooks", {
+    graphileBuildOptions: {
+      operationMessages: true,
+      operationMessagesPreflight: true,
+    },
     appendPlugins: [OperationHooksPlugin, ...plugins],
   });
 

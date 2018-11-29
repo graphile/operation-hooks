@@ -43,7 +43,10 @@ export const EchoPlugin = makeExtendSchemaPlugin(build => ({
 export function getSchema(morePlugins: Plugin[] = []) {
   return buildSchema(
     [...defaultPlugins, EchoPlugin, OperationHooksPlugin, ...morePlugins],
-    {}
+    {
+      operationMessages: true,
+      operationMessagesPreflight: true,
+    }
   );
 }
 

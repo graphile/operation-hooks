@@ -3,8 +3,10 @@ import { OperationHook } from "./OperationHooksPlugin";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
 
 const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessagesMutationPayloadPlugin(
-  builder
+  builder,
+  { operationMessages }
 ) {
+  if (!operationMessages) return;
   builder.hook("inflection", (inflection, build) => {
     return build.extend(inflection, {
       operationMessageInterfaceName: () => "OperationMessageInterface",

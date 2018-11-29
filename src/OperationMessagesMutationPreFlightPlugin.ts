@@ -2,8 +2,10 @@ import { Plugin, Context } from "graphile-build";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
 
 const OperationMessagesMutationPreFlightPlugin: Plugin = function OperationMessagesMutationPreFlightPlugin(
-  builder
+  builder,
+  { operationMessagesPreflight }
 ) {
+  if (!operationMessagesPreflight) return;
   builder.hook("init", (_, build) => {
     build.addOperationHook((fieldContext: Context<any>) => {
       const {
