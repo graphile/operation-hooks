@@ -53,6 +53,9 @@ function getFunctionSpec(build: Build, proc: PgProc): FunctionSpec {
     );
   }
 
+  // TODO: assert that 'level' and 'message' are exposed
+  // TODO: return a type for this
+
   return {
     isArray: rawReturnType.isPgArray,
   };
