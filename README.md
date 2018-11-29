@@ -33,12 +33,12 @@ const http = require("http"); // Or use Express or whatever
 const { postgraphile, makePluginHook } = require("postgraphile");
 
 const pluginHook = makePluginHook([
-  require("@graphile/operation-hooks")
+  require("@graphile/operation-hooks"),
   // Any more PostGraphile server plugins here
 ]);
 
 const postGraphileMiddleware = postgraphile(DATABASE_URL, SCHEMA_NAME, {
-  pluginHook
+  pluginHook,
   // ...
 });
 
@@ -53,7 +53,7 @@ const { createPostGraphileSchema } = require("postgraphile");
 const { OperationHooksPlugin } = require("@graphile/operation-hooks");
 
 const schema = createPostGraphileSchema(DATABASE_URL, SCHEMA_NAME, {
-  appendPlugins: [OperationHooksPlugin]
+  appendPlugins: [OperationHooksPlugin],
 });
 ```
 
@@ -238,15 +238,15 @@ By default we use the following naming convention:
 
 e.g. `"__mutation_createUser_before"`
 
-You can override this using the inflector `operationCallbackPgFunctionName`:
+You can override this using the inflector `pgOperationHookFunctionName`:
 
 ```js
 const { makeAddInflectorsPlugin } = require("graphile-utils");
 module.exports = makeAddInflectorsPlugin(
   {
-    operationCallbackPgFunctionName: (fieldContext, when) => {
+    pgOperationHookFunctionName: (fieldContext, when) => {
       const {
-        scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription }
+        scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription },
       } = fieldContext;
       const operationType = isRootQuery
         ? "query"
@@ -259,7 +259,7 @@ module.exports = makeAddInflectorsPlugin(
         throw new Error("Invalid fieldContext passed to inflector");
       }
       return `__${operationType}_${fieldName}_${when.toLowerCase()}`;
-    }
+    },
   },
   true
 );
@@ -330,8 +330,8 @@ const logCreateMutationsHookFromBuild = build => fieldContext => {
         // This function (which can be asynchronous) will be called before the
         // operation; it will be passed a value that it must return verbatim;
         // the only other valid return is `null` in which case an error will be thrown.
-        callback: logAttempt
-      }
+        callback: logAttempt,
+      },
     ],
 
     // As `before`, except the callback is called after the operation and will
@@ -341,7 +341,7 @@ const logCreateMutationsHookFromBuild = build => fieldContext => {
 
     // As `before`; except the callback is called if an error occurs; it will be
     // passed the error and must return either the error or a derivative of it.
-    error: []
+    error: [],
   };
 };
 

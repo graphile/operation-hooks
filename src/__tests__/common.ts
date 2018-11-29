@@ -7,6 +7,7 @@ import OperationHooksPlugin, {
 import OperationMessagesPlugin from "../OperationMessagesPlugin";
 import OperationMessagesMutationPayloadPlugin from "../OperationMessagesMutationPayloadPlugin";
 import OperationMessagesMutationPreFlightPlugin from "../OperationMessagesMutationPreFlightPlugin";
+import PgOperationHooksPlugin from "../PgOperationHooksPlugin";
 
 export const EchoPlugin = makeExtendSchemaPlugin(build => ({
   typeDefs: gql`
@@ -50,6 +51,7 @@ export function getSchema(morePlugins: Plugin[] = []) {
       EchoPlugin,
       OperationHooksPlugin,
       OperationMessagesPlugin,
+      PgOperationHooksPlugin,
       // TODO: database messages plugin here
       OperationMessagesMutationPayloadPlugin,
       OperationMessagesMutationPreFlightPlugin,
