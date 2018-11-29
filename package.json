@@ -43,5 +43,8 @@
   },
   "prettier": {
     "trailingComma": "es5"
-  }
+  },
+  "files": [
+    "lib"
+  ]
 }
