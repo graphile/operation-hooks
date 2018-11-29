@@ -13,17 +13,45 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
 }
 
+function snapshotSanitise(o: any): any {
+  if (Array.isArray(o)) {
+    return o.map(snapshotSanitise);
+  } else if (o && typeof o === "object") {
+    let result = {};
+    for (const key in o) {
+      const val = o[key];
+      if (key === "id" && typeof val === "number") {
+        result[key] = "[NUMBER]";
+      } else if (key === "nodeId" && typeof val === "string") {
+        result[key] = "[NodeId]";
+      } else {
+        result[key] = snapshotSanitise(val);
+      }
+    }
+    return result;
+  } else {
+    return o;
+  }
+}
+
 let pgPool: Pool;
+function sqlSearchPath(sql: string) {
+  return `
+  begin;
+  set local search_path to operation_hooks;
+  ${sql};
+  commit;
+  `;
+}
 
 beforeAll(async () => {
   pgPool = new Pool({
     connectionString: process.env.TEST_DATABASE_URL,
   });
-  await pgPool.query(`
-  begin;
+  await pgPool.query(
+    sqlSearchPath(`
   drop schema if exists operation_hooks cascade;
   create schema operation_hooks;
-  set local search_path to operation_hooks;
 
   create table users (id serial primary key, name text not null);
 
@@ -34,13 +62,8 @@ beforeAll(async () => {
     code text
   );
 
-  create function "mutation_createUser_before"(args json) returns setof mutation_message as $$
-    select row('info', 'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'), ARRAY['input', 'name'], 'INFO1')::mutation_message;
-  $$ language sql volatile set search_path from current;
-  comment on function "mutation_createUser_before"(args json) is E'@omit';
-
-  commit;
-  `);
+  `)
+  );
 });
 
 afterAll(() => {
@@ -82,22 +105,77 @@ const getPostGraphileSchema = (plugins: Plugin[] = []) =>
     appendPlugins: [OperationHooksPlugin, ...plugins],
   });
 
-test("creates messages on meta", async () => {
-  let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
-  const schema = await getPostGraphileSchema([
-    makeHookPlugin(
-      (input, _args, _context, resolveInfo: GraphQLResolveInfoWithMessages) => {
-        resolveInfos.push(resolveInfo);
-        return input;
-      },
-      "after",
-      999
-    ),
-  ]);
-  expect(resolveInfos.length).toEqual(0);
-  const data = await postgraphql(
-    schema,
-    `
+const equivalentFunctions = [
+  `
+  create function "mutation_createUser_before"(args json) returns setof mutation_message as $$
+    select row(
+      'info',
+      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+      ARRAY['input', 'name'],
+      'INFO1'
+    )::mutation_message;
+  $$ language sql volatile set search_path from current;
+  `,
+  `
+  create function "mutation_createUser_before"(args json) returns mutation_message[] as $$
+    select ARRAY[row(
+      'info',
+      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+      ARRAY['input', 'name'],
+      'INFO1'
+    )::mutation_message]
+  $$ language sql volatile set search_path from current;
+  `,
+  `
+  create function "mutation_createUser_before"(args json) returns table(
+    level text,
+    message text,
+    path text[],
+    code text
+  ) as $$
+    select 
+      'info',
+      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+      ARRAY['input', 'name'],
+      'INFO1';
+  $$ language sql volatile set search_path from current;
+  `,
+];
+
+describe("equivalent functions", () => {
+  equivalentFunctions.forEach((sqlDef, i) => {
+    const matches = sqlDef.match(
+      /create function "([^"]+)"\(([^)]+)\) (?:returns ([\s\S]*) )?as \$\$/
+    );
+    if (!matches) throw new Error(`Don't understand SQL definition ${i}!`);
+    const [, funcName, funcArgs, funcReturns] = matches;
+    const dropSql = `drop function "${funcName}"(${funcArgs});`;
+    const omitSql = `comment on function "mutation_createUser_before"(args json) is E'@omit';`;
+    describe(`hook returning '${funcReturns.replace(/\s+/g, " ")}'`, () => {
+      beforeAll(() => pgPool.query(sqlSearchPath(`${sqlDef};${omitSql};`)));
+      afterAll(() => pgPool.query(sqlSearchPath(dropSql)));
+
+      test("creates messages on meta", async () => {
+        let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
+        const schema = await getPostGraphileSchema([
+          makeHookPlugin(
+            (
+              input,
+              _args,
+              _context,
+              resolveInfo: GraphQLResolveInfoWithMessages
+            ) => {
+              resolveInfos.push(resolveInfo);
+              return input;
+            },
+            "after",
+            999
+          ),
+        ]);
+        expect(resolveInfos.length).toEqual(0);
+        const data = await postgraphql(
+          schema,
+          `
       mutation {
         createUser(input: { user: { name: "Bobby Tables" } }) {
           user {
@@ -113,11 +191,11 @@ test("creates messages on meta", async () => {
         }
       }
     `
-  );
-  expect(data.errors).toBeFalsy();
-  expect(resolveInfos.length).toEqual(1);
-  // TODO: I'm committing the below INVALID SNAPSHOTS but I will fix them later!
-  expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
+        );
+        expect(data.errors).toBeFalsy();
+        expect(resolveInfos.length).toEqual(1);
+        // TODO: I'm committing the below INVALID SNAPSHOTS but I will fix them later!
+        expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
 Array [
   Object {
     "code": "INFO1",
@@ -130,7 +208,7 @@ Array [
   },
 ]
 `);
-  expect(data).toMatchInlineSnapshot(`
+        expect(snapshotSanitise(data)).toMatchInlineSnapshot(`
 Object {
   "data": Object {
     "createUser": Object {
@@ -145,12 +223,15 @@ Object {
         },
       ],
       "user": Object {
-        "id": 1,
+        "id": "[NUMBER]",
         "name": "Bobby Tables",
-        "nodeId": "WyJ1c2VycyIsMV0=",
+        "nodeId": "[NodeId]",
       },
     },
   },
 }
 `);
+      });
+    });
+  });
 });

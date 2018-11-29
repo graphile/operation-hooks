@@ -1,37 +1,68 @@
 import { Plugin, Build, Context } from "graphile-build";
 import { OperationHookCallback, OperationHook } from "./OperationHooksPlugin";
-import { PgProc } from "graphile-build-pg";
+import { PgProc, PgType } from "graphile-build-pg";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
 
 type BeforeOrAfter = "before" | "after";
 const JSON_TYPE_ID = "114";
 const JSONB_TYPE_ID = "3802";
 
-function assertValidCallbackFunc(_build: Build, proc: PgProc): void {
-  if (proc.argTypeIds.length !== 1) {
+interface FunctionSpec {
+  isArray: boolean;
+}
+
+function getFunctionSpec(build: Build, proc: PgProc): FunctionSpec {
+  const { pgIntrospectionResultsByKind: introspectionResultsByKind } = build;
+  const argModesWithOutput = [
+    "o", // OUT,
+    "b", // INOUT
+    "t", // TABLE
+  ];
+  const argTypes: PgType[] = [];
+  const outputArgNames: string[] = [];
+  const outputArgTypes: PgType[] = [];
+  proc.argTypeIds.forEach((typeId, idx) => {
+    if (
+      proc.argModes.length === 0 || // all args are `in`
+      proc.argModes[idx] === "i" || // this arg is `in`
+      proc.argModes[idx] === "b" // this arg is `inout`
+    ) {
+      argTypes.push(introspectionResultsByKind.typeById[typeId]);
+    }
+    if (argModesWithOutput.includes(proc.argModes[idx])) {
+      outputArgNames.push(proc.argNames[idx] || "");
+      outputArgTypes.push(introspectionResultsByKind.typeById[typeId]);
+    }
+  });
+
+  const rawReturnType: PgType =
+    introspectionResultsByKind.typeById[proc.returnTypeId];
+
+  if (argTypes.length !== 1) {
     throw new Error(
       `Function ${proc.namespaceName}.${
         proc.name
-      }(...) should accept exactly one argument`
+      }(...) should accept exactly one input argument`
     );
   }
-  if (
-    proc.argTypeIds[0] !== JSON_TYPE_ID &&
-    proc.argTypeIds[0] !== JSONB_TYPE_ID
-  ) {
+  if (argTypes[0].id !== JSON_TYPE_ID && argTypes[0].id !== JSONB_TYPE_ID) {
     throw new Error(
       `Function ${proc.namespaceName}.${
         proc.name
       }(...)'s argument should be either JSON or JSONB`
     );
   }
-  // TODO: assert return type
+
+  return {
+    isArray: rawReturnType.isPgArray,
+  };
 }
 
 function sqlFunctionToCallback(
   build: Build,
   proc: PgProc
 ): OperationHookCallback {
+  const spec = getFunctionSpec(build, proc);
   return async (
     input,
     args,
@@ -45,10 +76,15 @@ function sqlFunctionToCallback(
     const { pgClient } = context;
 
     // Call the function
-    const sqlQuery = sql.query`select * from ${sql.identifier(
+    const sqlFunctionCall = sql.fragment`${sql.identifier(
       proc.namespaceName,
       proc.name
     )}(${sql.value(JSON.stringify(args))}::json)`;
+    const source = spec.isArray
+      ? sql.fragment`unnest(${sqlFunctionCall})`
+      : sqlFunctionCall;
+    const sqlQuery = sql.query`select * from ${source};`;
+
     const compiled = sql.compile(sqlQuery);
     const { rows } = await pgClient.query(compiled);
 
@@ -70,7 +106,6 @@ function getCallSQLFunction(
     (proc: PgProc) => proc.name === name
   );
   if (sqlFunction) {
-    assertValidCallbackFunc(build, sqlFunction);
     return sqlFunctionToCallback(build, sqlFunction);
   }
   return null;
