@@ -22,6 +22,7 @@ const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessage
         GraphQLList,
       },
       newWithHooks,
+      getTypeByName,
     } = build;
 
     const OperationMessageInterface = newWithHooks(
@@ -29,7 +30,11 @@ const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessage
       {
         name: build.inflection.operationMessageInterfaceName(),
         // Override this function when you add other subtypes
-        resolveType: (_object: any) => OperationMessage,
+        resolveType: (_object: any) =>
+          (_object &&
+            _object.__typename &&
+            getTypeByName(_object.__typename)) ||
+          OperationMessage,
         fields: {
           level: {
             type: new GraphQLNonNull(GraphQLString),
