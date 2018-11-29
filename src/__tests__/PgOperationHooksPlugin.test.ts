@@ -120,8 +120,13 @@ test("creates messages on meta", async () => {
   expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
 Array [
   Object {
+    "code": "INFO1",
     "level": "info",
-    "message": "TODO! IF THIS IS IN A SNAPSHOT IT'S AN ERROR!",
+    "message": "Pre createUser mutation; name: Bobby Tables",
+    "path": Array [
+      "input",
+      "name",
+    ],
   },
 ]
 `);
@@ -132,8 +137,11 @@ Object {
       "messages": Array [
         Object {
           "level": "info",
-          "message": "TODO! IF THIS IS IN A SNAPSHOT IT'S AN ERROR!",
-          "path": null,
+          "message": "Pre createUser mutation; name: Bobby Tables",
+          "path": Array [
+            "input",
+            "name",
+          ],
         },
       ],
       "user": Object {

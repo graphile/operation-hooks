@@ -53,11 +53,7 @@ function sqlFunctionToCallback(
     const { rows } = await pgClient.query(compiled);
 
     // Process the results, add to messages
-    console.log(rows); // TODO
-    messages.push({
-      level: "info",
-      message: "TODO! IF THIS IS IN A SNAPSHOT IT'S AN ERROR!",
-    });
+    messages.push(...rows);
 
     // Return input unmodified
     return input;
