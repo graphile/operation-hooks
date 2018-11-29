@@ -140,6 +140,21 @@ const equivalentFunctions = [
       'INFO1';
   $$ language sql volatile set search_path from current;
   `,
+  `
+  create function "mutation_createUser_before"(
+    in args json,
+    out level text,
+    out message text,
+    out path text[],
+    out code text
+  ) as $$
+    select 
+      'info',
+      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+      ARRAY['input', 'name'],
+      'INFO1';
+  $$ language sql volatile set search_path from current;
+  `,
 ];
 
 describe("equivalent functions", () => {
@@ -151,7 +166,9 @@ describe("equivalent functions", () => {
     const [, funcName, funcArgs, funcReturns] = matches;
     const dropSql = `drop function "${funcName}"(${funcArgs});`;
     const omitSql = `comment on function "mutation_createUser_before"(args json) is E'@omit';`;
-    describe(`hook returning '${funcReturns.replace(/\s+/g, " ")}'`, () => {
+    describe(`hook returning '${
+      funcReturns ? funcReturns.replace(/\s+/g, " ") : "record"
+    }'`, () => {
       beforeAll(() => pgPool.query(sqlSearchPath(`${sqlDef};${omitSql};`)));
       afterAll(() => pgPool.query(sqlSearchPath(dropSql)));
 
