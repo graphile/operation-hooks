@@ -166,24 +166,6 @@ definitions, so be careful to not expose more information than you intend!
 Adding this schema plugin to a PostGraphile server will give you the ability
 to define mutation operation hooks via PostgreSQL functions.
 
-### SQL operation message identifier
-
-If you provide the CLI flag `--operation-message-identifier my_schema.my_type` (or library `operationMessageIdentifier: "my_schema.my_type"`) then `my_schema.my_type` will be interpretted as an
-operation message type; it must have the fields specified above (`level`,
-`message` and `path`) but may have additional fields also. If you also pass
-`--operation-messages` then this type will have the
-`OperationMessageInterface` added, and will be returned with relevant
-mutation payloads.
-
-```sql
-create type mutation_message (
-  level text, -- "error" is special, other values are allowed
-  message text, -- human readable message
-  path text[] -- e.g. "['input', 'user', 'emails', '3', 'address']"
-  /* anything else */
-);
-```
-
 ### SQL function requirements
 
 To be detected as a mutation operation hook, these PostgreSQL functions must
