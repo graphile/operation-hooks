@@ -39,7 +39,6 @@ const plugin: PostGraphilePlugin = {
     };
     return {
       ...options,
-      appendPlugins: [...(options.appendPlugins || []), OperationHooksPlugin],
       operationMessages,
       operationMessagesPreflight,
     };
@@ -52,6 +51,7 @@ const plugin: PostGraphilePlugin = {
     const { operationMessages, operationMessagesPreflight } = options;
     return {
       ...options,
+      appendPlugins: [...(options.appendPlugins || []), OperationHooksPlugin],
       graphileBuildOptions: {
         ...options.graphileBuildOptions,
         operationMessages,
