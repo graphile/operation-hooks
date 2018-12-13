@@ -1,8 +1,9 @@
 import { Plugin, Build, Context } from "graphile-build";
 import { OperationHookCallback, OperationHook } from "./OperationHooksPlugin";
-import { PgClass, PgProc, PgType } from "graphile-build-pg";
+import { PgClass, PgProc, PgType, PgConstraint } from "graphile-build-pg";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
 
+type SQL = any;
 type BeforeOrAfter = "before" | "after";
 type SqlOp = "insert" | "update" | "delete";
 const JSON_TYPE_ID = "114";
@@ -10,16 +11,23 @@ const JSONB_TYPE_ID = "3802";
 
 interface FunctionSpec {
   isArray: boolean;
+  makeArgs(args: any): SQL;
 }
 
-function getFunctionSpec(build: Build, proc: PgProc): FunctionSpec {
+function getFunctionSpec(
+  build: Build,
+  proc: PgProc,
+  sqlOp: SqlOp,
+  pgFieldConstraint: PgConstraint
+): FunctionSpec {
+  const { pgSql: sql } = build;
   const { pgIntrospectionResultsByKind: introspectionResultsByKind } = build;
   const argModesWithOutput = [
     "o", // OUT,
     "b", // INOUT
     "t", // TABLE
   ];
-  const argTypes: PgType[] = [];
+  const inputArgTypes: PgType[] = [];
   const outputArgNames: string[] = [];
   const outputArgTypes: PgType[] = [];
   proc.argTypeIds.forEach((typeId, idx) => {
@@ -28,7 +36,7 @@ function getFunctionSpec(build: Build, proc: PgProc): FunctionSpec {
       proc.argModes[idx] === "i" || // this arg is `in`
       proc.argModes[idx] === "b" // this arg is `inout`
     ) {
-      argTypes.push(introspectionResultsByKind.typeById[typeId]);
+      inputArgTypes.push(introspectionResultsByKind.typeById[typeId]);
     }
     if (argModesWithOutput.includes(proc.argModes[idx])) {
       outputArgNames.push(proc.argNames[idx] || "");
@@ -39,34 +47,69 @@ function getFunctionSpec(build: Build, proc: PgProc): FunctionSpec {
   const rawReturnType: PgType =
     introspectionResultsByKind.typeById[proc.returnTypeId];
 
-  if (argTypes.length !== 1) {
+  const hasJson = inputArgTypes.length >= 1;
+  const hasRow = inputArgTypes.length >= 2;
+  const hasOp = inputArgTypes.length >= 3;
+  if (inputArgTypes.length > 3) {
+    throw new Error(
+      `Function '${proc.namespaceName}.${proc.name}' accepts too many arguments`
+    );
+  }
+
+  if (
+    hasJson &&
+    inputArgTypes[0].id !== JSON_TYPE_ID &&
+    inputArgTypes[0].id !== JSONB_TYPE_ID
+  ) {
     throw new Error(
       `Function ${proc.namespaceName}.${
         proc.name
-      }(...) should accept exactly one input argument`
+      }(...)'s first argument should be either JSON or JSONB`
     );
   }
-  if (argTypes[0].id !== JSON_TYPE_ID && argTypes[0].id !== JSONB_TYPE_ID) {
-    throw new Error(
-      `Function ${proc.namespaceName}.${
-        proc.name
-      }(...)'s argument should be either JSON or JSONB`
-    );
-  }
+
+  const makeArgs = (args: any): any => {
+    const parts = [];
+    if (hasJson) {
+      parts.push(
+        sql.fragment`${sql.value(JSON.stringify(args))}::${sql.identifier(
+          inputArgTypes[0].name
+        )}`
+      );
+    }
+    if (hasRow) {
+      // TODO!!
+      parts.push(
+        sql.fragment`null::${sql.identifier(
+          pgFieldConstraint.class.namespaceName,
+          pgFieldConstraint.class.name
+        )}`
+      );
+    }
+    if (hasOp) {
+      parts.push(sql.literal(sqlOp));
+    }
+
+    // JSON or JSONB
+    return sql.join(parts, ", ");
+  };
 
   // TODO: assert that 'level' and 'message' are exposed
   // TODO: return a type for this
 
   return {
     isArray: rawReturnType.isPgArray,
+    makeArgs,
   };
 }
 
 function sqlFunctionToCallback(
   build: Build,
-  proc: PgProc
+  proc: PgProc,
+  sqlOp: SqlOp,
+  pgFieldConstraint: PgConstraint
 ): OperationHookCallback {
-  const spec = getFunctionSpec(build, proc);
+  const spec = getFunctionSpec(build, proc, sqlOp, pgFieldConstraint);
   return async (
     input,
     args,
@@ -83,7 +126,8 @@ function sqlFunctionToCallback(
     const sqlFunctionCall = sql.fragment`${sql.identifier(
       proc.namespaceName,
       proc.name
-    )}(${sql.value(JSON.stringify(args))}::json)`;
+    )}(${spec.makeArgs(args)})`;
+    // )}(${sql.value(JSON.stringify(args))}::json)`;
     const source = spec.isArray
       ? sql.fragment`unnest(${sqlFunctionCall})`
       : sqlFunctionCall;
@@ -113,6 +157,7 @@ function getCallSQLFunction(
       isPgDeleteMutationField,
       isPgCreateMutationField,
       pgFieldIntrospection: table,
+      pgFieldConstraint,
     },
   } = fieldContext;
   if (!isRootMutation && !isRootSubscription) {
@@ -131,6 +176,11 @@ function getCallSQLFunction(
   if (sqlOp === null) {
     return null;
   }
+  if (sqlOp !== "insert" && !pgFieldConstraint) {
+    throw new Error(
+      `PostGraphile version is out of date, pgFieldConstraint is required to hook '${sqlOp}' mutation.`
+    );
+  }
   const name = build.inflection.pgOperationHookFunctionName(
     table,
     sqlOp,
@@ -141,7 +191,7 @@ function getCallSQLFunction(
     (proc: PgProc) => proc.name === name
   );
   if (sqlFunction) {
-    return sqlFunctionToCallback(build, sqlFunction);
+    return sqlFunctionToCallback(build, sqlFunction, sqlOp, pgFieldConstraint);
   }
   return null;
 }
