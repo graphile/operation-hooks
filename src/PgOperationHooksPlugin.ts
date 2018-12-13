@@ -1,6 +1,6 @@
-import { Plugin, Build, Context } from "graphile-build";
+import { Plugin, Build, Context, Scope } from "graphile-build";
 import { OperationHookCallback, OperationHook } from "./OperationHooksPlugin";
-import { PgClass, PgProc, PgType, PgConstraint } from "graphile-build-pg";
+import { PgClass, PgProc, PgType, PgAttribute } from "graphile-build-pg";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
 
 type SQL = any;
@@ -18,10 +18,24 @@ function getFunctionSpec(
   build: Build,
   proc: PgProc,
   sqlOp: SqlOp,
-  pgFieldConstraint: PgConstraint
+  scope: Scope<any>
 ): FunctionSpec {
-  const { pgSql: sql } = build;
-  const { pgIntrospectionResultsByKind: introspectionResultsByKind } = build;
+  const {
+    pgFieldIntrospection: table,
+    pgFieldConstraint: constraint,
+    isPgNodeMutation,
+    fieldName,
+  } = scope;
+  const {
+    pgSql: sql,
+    nodeIdFieldName,
+    getTypeAndIdentifiersFromNodeId,
+    pgGetGqlTypeByTypeIdAndModifier,
+    gql2pg,
+    inflection,
+    pgIntrospectionResultsByKind: introspectionResultsByKind,
+  } = build;
+  const TableType = pgGetGqlTypeByTypeIdAndModifier(table.type.id, null);
   const argModesWithOutput = [
     "o", // OUT,
     "b", // INOUT
@@ -68,6 +82,12 @@ function getFunctionSpec(
     );
   }
 
+  const primaryKeyConstraint = table.primaryKeyConstraint;
+  const primaryKeys =
+    primaryKeyConstraint && primaryKeyConstraint.keyAttributes;
+
+  const sqlTable = sql.identifier(table.namespaceName, table.name);
+
   const makeArgs = (args: any): any => {
     const parts = [];
     if (hasJson) {
@@ -78,11 +98,52 @@ function getFunctionSpec(
       );
     }
     if (hasRow) {
-      // TODO!!
+      let rowSql: SQL;
+      if (sqlOp === "insert") {
+        rowSql = sql.null;
+      } else if (constraint) {
+        const sqlTuple = sql.identifier(Symbol());
+        rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
+          constraint.keyAttributes.map(
+            (key: PgAttribute) =>
+              sql.fragment`${sql.identifier(key.name)} = ${gql2pg(
+                args.input[inflection.column(key)],
+                key.type,
+                key.typeModifier
+              )}`
+          ),
+          ") and ("
+        )}))`;
+      } else if (isPgNodeMutation) {
+        const nodeId = args.input[nodeIdFieldName];
+        const { Type, identifiers } = getTypeAndIdentifiersFromNodeId(nodeId);
+        if (Type !== TableType) {
+          throw new Error("Mismatched type");
+        }
+        if (identifiers.length !== primaryKeys.length) {
+          throw new Error("Invalid ID");
+        }
+        const sqlTuple = sql.identifier(Symbol());
+        rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
+          primaryKeys.map(
+            (key: PgAttribute, idx: number) =>
+              sql.fragment`${sql.identifier(sqlTuple, key.name)} = ${gql2pg(
+                identifiers[idx],
+                key.type,
+                key.typeModifier
+              )}`
+          ),
+          ") and ("
+        )}))`;
+      } else {
+        throw new Error(
+          `Don't know how to determine row for PgOperationHooksPlugin, mutation '${fieldName}'`
+        );
+      }
       parts.push(
-        sql.fragment`null::${sql.identifier(
-          pgFieldConstraint.class.namespaceName,
-          pgFieldConstraint.class.name
+        sql.fragment`${rowSql}::${sql.identifier(
+          table.namespaceName,
+          table.name
         )}`
       );
     }
@@ -107,9 +168,9 @@ function sqlFunctionToCallback(
   build: Build,
   proc: PgProc,
   sqlOp: SqlOp,
-  pgFieldConstraint: PgConstraint
+  scope: Scope<any>
 ): OperationHookCallback {
-  const spec = getFunctionSpec(build, proc, sqlOp, pgFieldConstraint);
+  const spec = getFunctionSpec(build, proc, sqlOp, scope);
   return async (
     input,
     args,
@@ -149,17 +210,15 @@ function getCallSQLFunction(
   fieldContext: Context<any>,
   when: BeforeOrAfter
 ): OperationHookCallback | null {
+  const { scope } = fieldContext;
   const {
-    scope: {
-      isRootMutation,
-      isRootSubscription,
-      isPgUpdateMutationField,
-      isPgDeleteMutationField,
-      isPgCreateMutationField,
-      pgFieldIntrospection: table,
-      pgFieldConstraint,
-    },
-  } = fieldContext;
+    isRootMutation,
+    isRootSubscription,
+    isPgUpdateMutationField,
+    isPgDeleteMutationField,
+    isPgCreateMutationField,
+    pgFieldIntrospection: table,
+  } = scope;
   if (!isRootMutation && !isRootSubscription) {
     return null;
   }
@@ -176,11 +235,6 @@ function getCallSQLFunction(
   if (sqlOp === null) {
     return null;
   }
-  if (sqlOp !== "insert" && !pgFieldConstraint) {
-    throw new Error(
-      `PostGraphile version is out of date, pgFieldConstraint is required to hook '${sqlOp}' mutation.`
-    );
-  }
   const name = build.inflection.pgOperationHookFunctionName(
     table,
     sqlOp,
@@ -191,7 +245,7 @@ function getCallSQLFunction(
     (proc: PgProc) => proc.name === name
   );
   if (sqlFunction) {
-    return sqlFunctionToCallback(build, sqlFunction, sqlOp, pgFieldConstraint);
+    return sqlFunctionToCallback(build, sqlFunction, sqlOp, scope);
   }
   return null;
 }

@@ -243,8 +243,32 @@ describe("equivalent functions", () => {
         expect(resolveInfos[0].graphileMeta.messages[0].message).toMatch(
           /Pre user insert mutation/
         );
-        expect(resolveInfos[0].graphileMeta.messages).toMatchSnapshot();
-        expect(snapshotSanitise(data)).toMatchSnapshot();
+        expect(resolveInfos[0].graphileMeta.messages).toEqual([
+          {
+            code: "INFO1",
+            level: "info",
+            message: "Pre user insert mutation; name: Bobby Tables",
+            path: ["input", "name"],
+          },
+        ]);
+        expect(snapshotSanitise(data)).toEqual({
+          data: {
+            createUser: {
+              messages: [
+                {
+                  level: "info",
+                  message: "Pre user insert mutation; name: Bobby Tables",
+                  path: ["input", "name"],
+                },
+              ],
+              user: {
+                id: "[NUMBER]",
+                name: "Bobby Tables",
+                nodeId: "[NodeId]",
+              },
+            },
+          },
+        });
       });
     });
   });
