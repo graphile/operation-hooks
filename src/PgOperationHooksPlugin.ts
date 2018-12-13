@@ -91,10 +91,16 @@ function getFunctionSpec(
   const makeArgs = (args: any): any => {
     const parts = [];
     if (hasJson) {
+      const data =
+        sqlOp === "insert"
+          ? args.input[inflection.tableFieldName(table)]
+          : sqlOp === "update"
+          ? args.input[inflection.patchField(inflection.tableFieldName(table))]
+          : null;
       parts.push(
-        sql.fragment`${sql.value(JSON.stringify(args))}::${sql.identifier(
-          inputArgTypes[0].name
-        )}`
+        sql.fragment`${sql.value(
+          data ? JSON.stringify(data) : null
+        )}::${sql.identifier(inputArgTypes[0].name)}`
       );
     }
     if (hasRow) {

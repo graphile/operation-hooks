@@ -13,6 +13,35 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
 }
 
+const setupTeardownFunctions = (...sqlDefs: string[]) => {
+  const before: string[] = [];
+  const after: string[] = [];
+  const funcArgses: string[] = [];
+  const funcReturnses: string[] = [];
+  sqlDefs.forEach(sqlDef => {
+    const matches = sqlDef.match(
+      /create function ([a-z0-9_]+)\(([^)]+)\) (?:returns ([\s\S]*) )?as \$\$/
+    );
+    if (!matches) {
+      throw new Error(`Don't understand SQL definition ${sqlDef}!`);
+    }
+    const [, funcName, funcArgs, funcReturns] = matches;
+    const dropSql = `drop function ${funcName}(${funcArgs});`;
+    const omitSql = `comment on function ${funcName}(${funcArgs}) is E'@omit';`;
+    before.push(`${sqlDef};${omitSql};`);
+    after.push(dropSql);
+    funcArgses.push(funcArgs);
+    funcReturnses.push(funcReturns);
+  });
+
+  return {
+    sqlSetup: sqlSearchPath(before.join(";")),
+    sqlTeardown: sqlSearchPath(after.reverse().join(";")),
+    funcArgses,
+    funcReturnses,
+  };
+};
+
 function snapshotSanitise(o: any): any {
   if (Array.isArray(o)) {
     return o.map(snapshotSanitise);
@@ -55,6 +84,10 @@ beforeAll(async () => {
   create schema operation_hooks;
 
   create table users (id serial primary key, name text not null);
+  insert into users (id, name) values
+    (1, 'Uzr Vun');
+
+  select setval('users_id_seq', 1000);
 
   create type mutation_message as (
     level text,
@@ -117,11 +150,11 @@ function argVariants(
 ): string[] {
   const prefix = rawPrefix ? rawPrefix + " " : "";
   return [
-    `${prefix}args json`,
-    `${prefix}args jsonb`,
-    `${prefix}args json, ${prefix}tuple ${type}`,
-    `${prefix}args jsonb, ${prefix}tuple ${type}`,
-    `${prefix}args json, ${prefix}tuple ${type}, ${prefix}operation text`,
+    `${prefix}data json`,
+    `${prefix}data jsonb`,
+    `${prefix}data json, ${prefix}tuple ${type}`,
+    `${prefix}data jsonb, ${prefix}tuple ${type}`,
+    `${prefix}data json, ${prefix}tuple ${type}, ${prefix}operation text`,
   ].map(str => base.replace(/___/, str));
 }
 
@@ -131,7 +164,7 @@ const equivalentFunctions = [
 create function users_insert_before(___) returns setof mutation_message as $$
   select row(
     'info',
-    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    'Pre user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['input', 'name'],
     'INFO1'
   )::mutation_message;
@@ -143,7 +176,7 @@ $$ language sql volatile set search_path from current;`,
 create function users_insert_before(___) returns mutation_message[] as $$
   select ARRAY[row(
     'info',
-    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    'Pre user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['input', 'name'],
     'INFO1'
   )::mutation_message]
@@ -160,7 +193,7 @@ create function users_insert_before(___) returns table(
 ) as $$
   select 
     'info',
-    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    'Pre user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['input', 'name'],
     'INFO1';
 $$ language sql volatile set search_path from current;`,
@@ -177,7 +210,7 @@ create function users_insert_before(
 ) as $$
   select 
     'info',
-    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    'Pre user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['input', 'name'],
     'INFO1';
 $$ language sql volatile set search_path from current;`,
@@ -187,22 +220,21 @@ $$ language sql volatile set search_path from current;`,
 ];
 
 describe("equivalent functions", () => {
-  equivalentFunctions.forEach((sqlDef, i) => {
-    const matches = sqlDef.match(
-      /create function ([a-z0-9_]+)\(([^)]+)\) (?:returns ([\s\S]*) )?as \$\$/
-    );
-    if (!matches) throw new Error(`Don't understand SQL definition ${i}!`);
-    const [, funcName, funcArgs, funcReturns] = matches;
-    const dropSql = `drop function ${funcName}(${funcArgs});`;
-    const omitSql = `comment on function ${funcName}(${funcArgs}) is E'@omit';`;
+  equivalentFunctions.forEach(sqlDef => {
+    const {
+      sqlSetup,
+      sqlTeardown,
+      funcArgses: [funcArgs],
+      funcReturnses: [funcReturns],
+    } = setupTeardownFunctions(sqlDef);
     describe(`hook accepting '${funcArgs
       .replace(/\n/g, " ")
       .replace(/\s+/g, " ")
       .trim()}' returning '${
       funcReturns ? funcReturns.replace(/\s+/g, " ").trim() : "record"
     }'`, () => {
-      beforeAll(() => pgPool.query(sqlSearchPath(`${sqlDef};${omitSql};`)));
-      afterAll(() => pgPool.query(sqlSearchPath(dropSql)));
+      beforeAll(() => pgPool.query(sqlSetup));
+      afterAll(() => pgPool.query(sqlTeardown));
 
       test("creates messages on meta", async () => {
         let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
