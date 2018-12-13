@@ -309,3 +309,96 @@ describe("equivalent functions", () => {
     });
   });
 });
+
+describe("updating", () => {
+  [
+    {
+      name: "change name",
+      beforeSql: `\
+create function users_update_before(patch jsonb, old users, op text) returns setof mutation_message as $$
+  select row(
+    'info',
+    'Pre user update mutation; old name: ' || old.name || ', user request: ' || (patch ->> 'name'),
+    ARRAY['name'],
+    'INFO1'
+  )::mutation_message;
+$$ language sql volatile set search_path from current;`,
+      afterSql: `\
+create function users_update_after(patch jsonb, old users, op text) returns setof mutation_message as $$
+  select row(
+    'info',
+    'Post user update mutation; new name: ' || old.name || ', user request: ' || (patch ->> 'name'),
+    ARRAY['name'],
+    'INFO2'
+  )::mutation_message;
+$$ language sql volatile set search_path from current;`,
+      graphqlMutation: `
+        mutation {
+          updateUserById(input: { id: 1,  userPatch: { name: "Zeb Zob" } }) {
+            user {
+              nodeId
+              id
+              name
+            }
+            messages {
+              level
+              message
+              path
+            }
+          }
+        }
+      `,
+      messages: [
+        {
+          code: "INFO1",
+          level: "info",
+          message:
+            "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
+          path: ["input", "userPatch", "name"],
+        },
+        {
+          code: "INFO2",
+          level: "info",
+          message:
+            "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
+          path: ["input", "userPatch", "name"],
+        },
+      ],
+    },
+  ].forEach(({ beforeSql, afterSql, name, graphqlMutation, messages }) => {
+    const { sqlSetup, sqlTeardown } = setupTeardownFunctions(
+      beforeSql,
+      afterSql
+    );
+    describe(name, () => {
+      beforeAll(() => pgPool.query(sqlSetup));
+      afterAll(() => pgPool.query(sqlTeardown));
+
+      test("is passed correct arguments", async () => {
+        let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
+        const schema = await getPostGraphileSchema([
+          makeHookPlugin(
+            (
+              input,
+              _args,
+              _context,
+              resolveInfo: GraphQLResolveInfoWithMessages
+            ) => {
+              resolveInfos.push(resolveInfo);
+              return input;
+            },
+            "after",
+            999
+          ),
+        ]);
+        expect(resolveInfos.length).toEqual(0);
+        const data = await postgraphql(schema, graphqlMutation);
+        expect(data.errors).toBeFalsy();
+        expect(resolveInfos.length).toEqual(1);
+        expect(resolveInfos[0].graphileMeta.messages.length).toEqual(2);
+        expect(resolveInfos[0].graphileMeta.messages).toEqual(messages);
+        expect(snapshotSanitise(data)).toMatchSnapshot();
+      });
+    });
+  });
+});
