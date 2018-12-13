@@ -17,7 +17,8 @@ function snapshotSanitise(o: any): any {
   if (Array.isArray(o)) {
     return o.map(snapshotSanitise);
   } else if (o && typeof o === "object") {
-    let result = {};
+    const result = {};
+    // tslint:disable-next-line forin
     for (const key in o) {
       const val = o[key];
       if (key === "id" && typeof val === "number") {
@@ -194,8 +195,11 @@ describe("equivalent functions", () => {
     const [, funcName, funcArgs, funcReturns] = matches;
     const dropSql = `drop function ${funcName}(${funcArgs});`;
     const omitSql = `comment on function ${funcName}(${funcArgs}) is E'@omit';`;
-    describe(`hook accepting '${funcArgs}' returning '${
-      funcReturns ? funcReturns.replace(/\s+/g, " ") : "record"
+    describe(`hook accepting '${funcArgs
+      .replace(/\n/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()}' returning '${
+      funcReturns ? funcReturns.replace(/\s+/g, " ").trim() : "record"
     }'`, () => {
       beforeAll(() => pgPool.query(sqlSearchPath(`${sqlDef};${omitSql};`)));
       afterAll(() => pgPool.query(sqlSearchPath(dropSql)));
