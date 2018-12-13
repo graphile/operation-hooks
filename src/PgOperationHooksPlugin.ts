@@ -1,9 +1,10 @@
 import { Plugin, Build, Context } from "graphile-build";
 import { OperationHookCallback, OperationHook } from "./OperationHooksPlugin";
-import { PgProc, PgType } from "graphile-build-pg";
+import { PgClass, PgProc, PgType } from "graphile-build-pg";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
 
 type BeforeOrAfter = "before" | "after";
+type SqlOp = "insert" | "update" | "delete";
 const JSON_TYPE_ID = "114";
 const JSONB_TYPE_ID = "3802";
 
@@ -104,7 +105,38 @@ function getCallSQLFunction(
   fieldContext: Context<any>,
   when: BeforeOrAfter
 ): OperationHookCallback | null {
-  const name = build.inflection.pgOperationHookFunctionName(fieldContext, when);
+  const {
+    scope: {
+      isRootMutation,
+      isRootSubscription,
+      isPgUpdateMutationField,
+      isPgDeleteMutationField,
+      isPgCreateMutationField,
+      pgFieldIntrospection: table,
+    },
+  } = fieldContext;
+  if (!isRootMutation && !isRootSubscription) {
+    return null;
+  }
+  if (table.kind !== "class") {
+    return null;
+  }
+  const sqlOp: SqlOp | null = isPgCreateMutationField
+    ? "insert"
+    : isPgUpdateMutationField
+    ? "update"
+    : isPgDeleteMutationField
+    ? "delete"
+    : null;
+  if (sqlOp === null) {
+    return null;
+  }
+  const name = build.inflection.pgOperationHookFunctionName(
+    table,
+    sqlOp,
+    when,
+    fieldContext
+  );
   const sqlFunction = build.pgIntrospectionResultsByKind.procedure.find(
     (proc: PgProc) => proc.name === name
   );
@@ -120,23 +152,12 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
   builder.hook("inflection", (inflection, build) =>
     build.extend(inflection, {
       pgOperationHookFunctionName: (
-        fieldContext: Context<any>,
-        when: BeforeOrAfter
+        table: PgClass,
+        sqlOp: SqlOp,
+        when: BeforeOrAfter,
+        _fieldContext: Context<any>
       ) => {
-        const {
-          scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription },
-        } = fieldContext;
-        const operationType = isRootQuery
-          ? "query"
-          : isRootMutation
-          ? "mutation"
-          : isRootSubscription
-          ? "subscription"
-          : null;
-        if (operationType === null) {
-          throw new Error("Invalid fieldContext passed to inflector");
-        }
-        return `${operationType}_${fieldName}_${when.toLowerCase()}`;
+        return `${table.name}_${sqlOp}_${when.toLowerCase()}`;
       },
     })
   );

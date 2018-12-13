@@ -109,68 +109,92 @@ const getPostGraphileSchema = (plugins: Plugin[] = []) =>
     appendPlugins: [OperationHooksPlugin, ...plugins],
   });
 
+function argVariants(
+  base: string,
+  type: string,
+  rawPrefix: string = ""
+): string[] {
+  const prefix = rawPrefix ? rawPrefix + " " : "";
+  return [
+    `${prefix}args json`,
+    `${prefix}args jsonb`,
+    `${prefix}args json, ${prefix}tuple ${type}`,
+    `${prefix}args jsonb, ${prefix}tuple ${type}`,
+    `${prefix}args json, ${prefix}tuple ${type}, ${prefix}operation text`,
+  ].map(str => base.replace(/___/, str));
+}
+
 const equivalentFunctions = [
-  `
-  create function "mutation_createUser_before"(args json) returns setof mutation_message as $$
-    select row(
-      'info',
-      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
-      ARRAY['input', 'name'],
-      'INFO1'
-    )::mutation_message;
-  $$ language sql volatile set search_path from current;
-  `,
-  `
-  create function "mutation_createUser_before"(args json) returns mutation_message[] as $$
-    select ARRAY[row(
-      'info',
-      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
-      ARRAY['input', 'name'],
-      'INFO1'
-    )::mutation_message]
-  $$ language sql volatile set search_path from current;
-  `,
-  `
-  create function "mutation_createUser_before"(args json) returns table(
-    level text,
-    message text,
-    path text[],
-    code text
-  ) as $$
-    select 
-      'info',
-      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
-      ARRAY['input', 'name'],
-      'INFO1';
-  $$ language sql volatile set search_path from current;
-  `,
-  `
-  create function "mutation_createUser_before"(
-    in args json,
-    out level text,
-    out message text,
-    out path text[],
-    out code text
-  ) as $$
-    select 
-      'info',
-      'Pre createUser mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
-      ARRAY['input', 'name'],
-      'INFO1';
-  $$ language sql volatile set search_path from current;
-  `,
+  ...argVariants(
+    `\
+create function users_insert_before(___) returns setof mutation_message as $$
+  select row(
+    'info',
+    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    ARRAY['input', 'name'],
+    'INFO1'
+  )::mutation_message;
+$$ language sql volatile set search_path from current;`,
+    "users"
+  ),
+  ...argVariants(
+    `\
+create function users_insert_before(___) returns mutation_message[] as $$
+  select ARRAY[row(
+    'info',
+    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    ARRAY['input', 'name'],
+    'INFO1'
+  )::mutation_message]
+$$ language sql volatile set search_path from current;`,
+    "users"
+  ),
+  ...argVariants(
+    `\
+create function users_insert_before(___) returns table(
+  level text,
+  message text,
+  path text[],
+  code text
+) as $$
+  select 
+    'info',
+    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    ARRAY['input', 'name'],
+    'INFO1';
+$$ language sql volatile set search_path from current;`,
+    "users"
+  ),
+  ...argVariants(
+    `
+create function users_insert_before(
+  ___,
+  out level text,
+  out message text,
+  out path text[],
+  out code text
+) as $$
+  select 
+    'info',
+    'Pre user insert mutation; name: ' || (args -> 'input' -> 'user' ->> 'name'),
+    ARRAY['input', 'name'],
+    'INFO1';
+$$ language sql volatile set search_path from current;`,
+    "users",
+    "in"
+  ),
 ];
 
 describe("equivalent functions", () => {
   equivalentFunctions.forEach((sqlDef, i) => {
     const matches = sqlDef.match(
-      /create function "([^"]+)"\(([^)]+)\) (?:returns ([\s\S]*) )?as \$\$/
+      /create function ([a-z0-9_]+)\(([^)]+)\) (?:returns ([\s\S]*) )?as \$\$/
     );
     if (!matches) throw new Error(`Don't understand SQL definition ${i}!`);
     const [, funcName, funcArgs, funcReturns] = matches;
-    const dropSql = `drop function "${funcName}"(${funcArgs});`;
-    const omitSql = `comment on function "mutation_createUser_before"(args json) is E'@omit';`;
-    describe(`hook returning '${
+    const dropSql = `drop function ${funcName}(${funcArgs});`;
+    const omitSql = `comment on function ${funcName}(${funcArgs}) is E'@omit';`;
+    describe(`hook accepting '${funcArgs}' returning '${
       funcReturns ? funcReturns.replace(/\s+/g, " ") : "record"
     }'`, () => {
       beforeAll(() => pgPool.query(sqlSearchPath(`${sqlDef};${omitSql};`)));
@@ -197,61 +221,30 @@ describe("equivalent functions", () => {
         const data = await postgraphql(
           schema,
           `
-      mutation {
-        createUser(input: { user: { name: "Bobby Tables" } }) {
-          user {
-            nodeId
-            id
-            name
-          }
-          messages {
-            level
-            message
-            path
-          }
-        }
-      }
-    `
+            mutation {
+              createUser(input: { user: { name: "Bobby Tables" } }) {
+                user {
+                  nodeId
+                  id
+                  name
+                }
+                messages {
+                  level
+                  message
+                  path
+                }
+              }
+            }
+          `
         );
         expect(data.errors).toBeFalsy();
         expect(resolveInfos.length).toEqual(1);
-        // TODO: I'm committing the below INVALID SNAPSHOTS but I will fix them later!
-        expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
-Array [
-  Object {
-    "code": "INFO1",
-    "level": "info",
-    "message": "Pre createUser mutation; name: Bobby Tables",
-    "path": Array [
-      "input",
-      "name",
-    ],
-  },
-]
-`);
-        expect(snapshotSanitise(data)).toMatchInlineSnapshot(`
-Object {
-  "data": Object {
-    "createUser": Object {
-      "messages": Array [
-        Object {
-          "level": "info",
-          "message": "Pre createUser mutation; name: Bobby Tables",
-          "path": Array [
-            "input",
-            "name",
-          ],
-        },
-      ],
-      "user": Object {
-        "id": "[NUMBER]",
-        "name": "Bobby Tables",
-        "nodeId": "[NodeId]",
-      },
-    },
-  },
-}
-`);
+        expect(resolveInfos[0].graphileMeta.messages.length).toEqual(1);
+        expect(resolveInfos[0].graphileMeta.messages[0].message).toMatch(
+          /Pre user insert mutation/
+        );
+        expect(resolveInfos[0].graphileMeta.messages).toMatchSnapshot();
+        expect(snapshotSanitise(data)).toMatchSnapshot();
       });
     });
   });
