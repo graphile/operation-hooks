@@ -245,13 +245,12 @@ function getCallSQLFunction(
   const { scope } = fieldContext;
   const {
     isRootMutation,
-    isRootSubscription,
     isPgUpdateMutationField,
     isPgDeleteMutationField,
     isPgCreateMutationField,
     pgFieldIntrospection: table,
   } = scope;
-  if (!isRootMutation && !isRootSubscription) {
+  if (!isRootMutation) {
     return null;
   }
   if (table.kind !== "class") {
