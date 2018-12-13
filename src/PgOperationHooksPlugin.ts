@@ -9,9 +9,22 @@ type SqlOp = "insert" | "update" | "delete";
 const JSON_TYPE_ID = "114";
 const JSONB_TYPE_ID = "3802";
 
+const get = (obj: any, path: string[]) => {
+  let ret = obj;
+  // tslint:disable no-conditional-assignment
+  for (let i = 0, l = path.length; i < l; i++) {
+    if (ret == null) {
+      return ret;
+    }
+    ret = ret[path[i]];
+  }
+  return ret;
+};
+
 interface FunctionSpec {
   isArray: boolean;
-  makeArgs(args: any): SQL;
+  path: string[];
+  makeArgs: ((args: any) => SQL);
 }
 
 function getFunctionSpec(
@@ -88,15 +101,22 @@ function getFunctionSpec(
 
   const sqlTable = sql.identifier(table.namespaceName, table.name);
 
-  const makeArgs = (args: any): any => {
+  let path: string[] = [];
+  if (sqlOp === "insert") {
+    const inputFieldName = inflection.tableFieldName(table);
+    path = ["input", inputFieldName];
+  } else if (sqlOp === "update") {
+    const inputFieldName = inflection.patchField(
+      inflection.tableFieldName(table)
+    );
+    path = ["input", inputFieldName];
+  } else {
+    // Nothing
+  }
+  const makeArgs = (args: any): SQL => {
     const parts = [];
     if (hasJson) {
-      const data =
-        sqlOp === "insert"
-          ? args.input[inflection.tableFieldName(table)]
-          : sqlOp === "update"
-          ? args.input[inflection.patchField(inflection.tableFieldName(table))]
-          : null;
+      const data = path.length ? get(args, path) : null;
       parts.push(
         sql.fragment`${sql.value(
           data ? JSON.stringify(data) : null
@@ -167,6 +187,7 @@ function getFunctionSpec(
   return {
     isArray: rawReturnType.isPgArray,
     makeArgs,
+    path,
   };
 }
 
@@ -204,7 +225,12 @@ function sqlFunctionToCallback(
     const { rows } = await pgClient.query(compiled);
 
     // Process the results, add to messages
-    messages.push(...rows);
+    messages.push(
+      ...rows.map((msg: any) => ({
+        ...msg,
+        path: msg.path ? [...spec.path, ...msg.path] : null,
+      }))
+    );
 
     // Return input unmodified
     return input;

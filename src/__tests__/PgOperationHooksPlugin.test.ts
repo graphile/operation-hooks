@@ -165,7 +165,7 @@ create function users_insert_before(___) returns setof mutation_message as $$
   select row(
     'info',
     'Pre user insert mutation; name: ' || (data ->> 'name'),
-    ARRAY['input', 'name'],
+    ARRAY['name'],
     'INFO1'
   )::mutation_message;
 $$ language sql volatile set search_path from current;`,
@@ -177,7 +177,7 @@ create function users_insert_before(___) returns mutation_message[] as $$
   select ARRAY[row(
     'info',
     'Pre user insert mutation; name: ' || (data ->> 'name'),
-    ARRAY['input', 'name'],
+    ARRAY['name'],
     'INFO1'
   )::mutation_message]
 $$ language sql volatile set search_path from current;`,
@@ -194,7 +194,7 @@ create function users_insert_before(___) returns table(
   select 
     'info',
     'Pre user insert mutation; name: ' || (data ->> 'name'),
-    ARRAY['input', 'name'],
+    ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;`,
     "users"
@@ -211,7 +211,7 @@ create function users_insert_before(
   select 
     'info',
     'Pre user insert mutation; name: ' || (data ->> 'name'),
-    ARRAY['input', 'name'],
+    ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;`,
     "users",
@@ -284,7 +284,7 @@ describe("equivalent functions", () => {
             code: "INFO1",
             level: "info",
             message: "Pre user insert mutation; name: Bobby Tables",
-            path: ["input", "name"],
+            path: ["input", "user", "name"],
           },
         ]);
         expect(snapshotSanitise(data)).toEqual({
@@ -294,7 +294,7 @@ describe("equivalent functions", () => {
                 {
                   level: "info",
                   message: "Pre user insert mutation; name: Bobby Tables",
-                  path: ["input", "name"],
+                  path: ["input", "user", "name"],
                 },
               ],
               user: {
