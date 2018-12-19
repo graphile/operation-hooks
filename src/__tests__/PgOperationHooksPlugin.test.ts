@@ -318,7 +318,7 @@ describe("updating", () => {
 create function users_update_before(patch jsonb, old users, op text) returns setof mutation_message as $$
   select row(
     'info',
-    'Pre user update mutation; old name: ' || old.name || ', user request: ' || (patch ->> 'name'),
+    'Pre user ' || op || ' mutation; old name: ' || old.name || ', user request: ' || (patch ->> 'name'),
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
@@ -327,7 +327,7 @@ $$ language sql volatile set search_path from current;`,
 create function users_update_after(patch jsonb, old users, op text) returns setof mutation_message as $$
   select row(
     'info',
-    'Post user update mutation; new name: ' || old.name || ', user request: ' || (patch ->> 'name'),
+    'Post user ' || op || ' mutation; new name: ' || old.name || ', user request: ' || (patch ->> 'name'),
     ARRAY['name'],
     'INFO2'
   )::mutation_message;
