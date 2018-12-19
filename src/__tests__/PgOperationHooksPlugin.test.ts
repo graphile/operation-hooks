@@ -7,7 +7,7 @@ import {
 import { GraphQLResolveInfoWithMessages } from "../OperationMessagesPlugin";
 import OperationHooksPlugin from "../OperationHooksPlugin";
 import { makeHookPlugin } from "./common";
-import { Pool } from "pg";
+import { Pool, PoolClient } from "pg";
 
 if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
@@ -104,6 +104,20 @@ afterAll(() => {
   pgPool.end();
 });
 
+async function withTransaction<T>(
+  pool: Pool,
+  cb: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client = await pool.connect();
+  await client.query("begin");
+  try {
+    return await cb(client);
+  } finally {
+    await client.query("rollback");
+    await client.release();
+  }
+}
+
 function postgraphql(
   schema: GraphQLSchema,
   query: string,
@@ -120,16 +134,19 @@ function postgraphql(
       pgPool,
     },
     (postgraphileContext: {}) =>
-      graphql(
-        schema,
-        query,
-        rootValue,
-        {
-          ...postgraphileContext,
-          context,
-        },
-        variables,
-        operationName
+      withTransaction(pgPool, pgClient =>
+        graphql(
+          schema,
+          query,
+          rootValue,
+          {
+            ...postgraphileContext,
+            pgClient,
+            ...context,
+          },
+          variables,
+          operationName
+        )
       )
   );
 }
@@ -237,7 +254,7 @@ describe("equivalent functions", () => {
       afterAll(() => pgPool.query(sqlTeardown));
 
       test("creates messages on meta", async () => {
-        let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
+        const resolveInfos: GraphQLResolveInfoWithMessages[] = [];
         const schema = await getPostGraphileSchema([
           makeHookPlugin(
             (
@@ -375,7 +392,7 @@ $$ language sql volatile set search_path from current;`,
       afterAll(() => pgPool.query(sqlTeardown));
 
       test("is passed correct arguments", async () => {
-        let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
+        const resolveInfos: GraphQLResolveInfoWithMessages[] = [];
         const schema = await getPostGraphileSchema([
           makeHookPlugin(
             (
