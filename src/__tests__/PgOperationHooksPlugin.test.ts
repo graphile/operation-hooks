@@ -1,4 +1,5 @@
-import { graphql, GraphQLSchema } from "graphql";
+// tslint:disable no-console
+import { graphql, GraphQLSchema, GraphQLError } from "graphql";
 import { Plugin } from "graphile-build";
 import {
   createPostGraphileSchema,
@@ -328,10 +329,7 @@ describe("equivalent functions", () => {
 });
 
 describe("updating", () => {
-  [
-    {
-      name: "change name",
-      beforeSql: `\
+  const info1Before = `\
 create function users_update_before(patch jsonb, old users, op text) returns setof mutation_message as $$
   select row(
     'info',
@@ -339,8 +337,8 @@ create function users_update_before(patch jsonb, old users, op text) returns set
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
-$$ language sql volatile set search_path from current;`,
-      afterSql: `\
+$$ language sql volatile set search_path from current;`;
+  const info1After = `\
 create function users_update_after(patch jsonb, old users, op text) returns setof mutation_message as $$
   select row(
     'info',
@@ -348,7 +346,30 @@ create function users_update_after(patch jsonb, old users, op text) returns seto
     ARRAY['name'],
     'INFO2'
   )::mutation_message;
-$$ language sql volatile set search_path from current;`,
+$$ language sql volatile set search_path from current;`;
+  const info1Messages = [
+    {
+      code: "INFO1",
+      level: "info",
+      message:
+        "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
+      path: ["input", "userPatch", "name"],
+    },
+    {
+      code: "INFO2",
+      level: "info",
+      message:
+        "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
+      path: ["input", "userPatch", "name"],
+    },
+  ];
+
+  [
+    {
+      name: "change name by id",
+      beforeSql: info1Before,
+      afterSql: info1After,
+      messages: info1Messages,
       graphqlMutation: `
         mutation {
           updateUserById(input: { id: 1,  userPatch: { name: "Zeb Zob" } }) {
@@ -365,22 +386,28 @@ $$ language sql volatile set search_path from current;`,
           }
         }
       `,
-      messages: [
-        {
-          code: "INFO1",
-          level: "info",
-          message:
-            "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
-          path: ["input", "userPatch", "name"],
-        },
-        {
-          code: "INFO2",
-          level: "info",
-          message:
-            "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
-          path: ["input", "userPatch", "name"],
-        },
-      ],
+    },
+    {
+      name: "change name by nodeId",
+      beforeSql: info1Before,
+      afterSql: info1After,
+      messages: info1Messages,
+      graphqlMutation: `
+        mutation {
+          updateUser(input: { nodeId: "WyJ1c2VycyIsMV0=",  userPatch: { name: "Zeb Zob" } }) {
+            user {
+              nodeId
+              id
+              name
+            }
+            messages {
+              level
+              message
+              path
+            }
+          }
+        }
+      `,
     },
   ].forEach(({ beforeSql, afterSql, name, graphqlMutation, messages }) => {
     const { sqlSetup, sqlTeardown } = setupTeardownFunctions(
@@ -410,6 +437,11 @@ $$ language sql volatile set search_path from current;`,
         ]);
         expect(resolveInfos.length).toEqual(0);
         const data = await postgraphql(schema, graphqlMutation);
+        if (data.errors) {
+          console.log(
+            data.errors.map((e: GraphQLError) => e.originalError || e)
+          );
+        }
         expect(data.errors).toBeFalsy();
         expect(resolveInfos.length).toEqual(1);
         expect(resolveInfos[0].graphileMeta.messages.length).toEqual(2);

@@ -153,7 +153,7 @@ function getFunctionSpec(
         rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
           primaryKeys.map(
             (key: PgAttribute, idx: number) =>
-              sql.fragment`${sql.identifier(sqlTuple, key.name)} = ${gql2pg(
+              sql.fragment`${sqlTuple}.${sql.identifier(key.name)} = ${gql2pg(
                 identifiers[idx],
                 key.type,
                 key.typeModifier
