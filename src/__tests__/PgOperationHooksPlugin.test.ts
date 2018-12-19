@@ -180,24 +180,32 @@ function argVariants(
   base: string,
   type: string,
   rawPrefix: string = ""
-): string[] {
+): [string, string][] {
   const prefix = rawPrefix ? rawPrefix + " " : "";
-  return [
+  const addWhen = (when: string) => (sql: string) =>
+    sql.replace(/%WHEN%/g, when);
+  const variantsWithArgs = [
     `${prefix}data json`,
     `${prefix}data jsonb`,
     `${prefix}data json, ${prefix}tuple ${type}`,
     `${prefix}data jsonb, ${prefix}tuple ${type}`,
     `${prefix}data json, ${prefix}tuple ${type}, ${prefix}operation text`,
   ].map(str => base.replace(/___/, str));
+  return variantsWithArgs.map(
+    (str: string): [string, string] => [
+      addWhen("before")(str),
+      addWhen("after")(str),
+    ]
+  );
 }
 
 const equivalentFunctions = [
   ...argVariants(
     `\
-create function users_insert_before(___) returns setof mutation_message as $$
+create function users_insert_%WHEN%(___) returns setof mutation_message as $$
   select row(
     'info',
-    'Pre user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
@@ -207,10 +215,10 @@ $$ language sql volatile set search_path from current;
   ),
   ...argVariants(
     `\
-create function users_insert_before(___) returns mutation_message[] as $$
+create function users_insert_%WHEN%(___) returns mutation_message[] as $$
   select ARRAY[row(
     'info',
-    'Pre user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['name'],
     'INFO1'
   )::mutation_message]
@@ -220,7 +228,7 @@ $$ language sql volatile set search_path from current;
   ),
   ...argVariants(
     `\
-create function users_insert_before(___) returns table(
+create function users_insert_%WHEN%(___) returns table(
   level text,
   message text,
   path text[],
@@ -228,7 +236,7 @@ create function users_insert_before(___) returns table(
 ) as $$
   select 
     'info',
-    'Pre user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;
@@ -237,7 +245,7 @@ $$ language sql volatile set search_path from current;
   ),
   ...argVariants(
     `
-create function users_insert_before(
+create function users_insert_%WHEN%(
   ___,
   out level text,
   out message text,
@@ -246,7 +254,7 @@ create function users_insert_before(
 ) as $$
   select 
     'info',
-    'Pre user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;
@@ -263,7 +271,7 @@ describe("equivalent functions", () => {
       sqlTeardown,
       funcArgses: [funcArgs],
       funcReturnses: [funcReturns],
-    } = setupTeardownFunctions(sqlDef);
+    } = setupTeardownFunctions(...sqlDef);
     describe(`hook accepting '${funcArgs
       .replace(/\n/g, " ")
       .replace(/\s+/g, " ")
@@ -312,15 +320,24 @@ describe("equivalent functions", () => {
         );
         expect(data.errors).toBeFalsy();
         expect(resolveInfos.length).toEqual(1);
-        expect(resolveInfos[0].graphileMeta.messages.length).toEqual(1);
+        expect(resolveInfos[0].graphileMeta.messages.length).toEqual(2);
         expect(resolveInfos[0].graphileMeta.messages[0].message).toMatch(
-          /Pre user insert mutation/
+          /before user insert mutation/
+        );
+        expect(resolveInfos[0].graphileMeta.messages[1].message).toMatch(
+          /after user insert mutation/
         );
         expect(resolveInfos[0].graphileMeta.messages).toEqual([
           {
             code: "INFO1",
             level: "info",
-            message: "Pre user insert mutation; name: Bobby Tables",
+            message: "before user insert mutation; name: Bobby Tables",
+            path: ["input", "user", "name"],
+          },
+          {
+            code: "INFO1",
+            level: "info",
+            message: "after user insert mutation; name: Bobby Tables",
             path: ["input", "user", "name"],
           },
         ]);
@@ -330,7 +347,12 @@ describe("equivalent functions", () => {
               messages: [
                 {
                   level: "info",
-                  message: "Pre user insert mutation; name: Bobby Tables",
+                  message: "before user insert mutation; name: Bobby Tables",
+                  path: ["input", "user", "name"],
+                },
+                {
+                  level: "info",
+                  message: "after user insert mutation; name: Bobby Tables",
                   path: ["input", "user", "name"],
                 },
               ],
