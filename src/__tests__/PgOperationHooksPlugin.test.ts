@@ -210,7 +210,9 @@ function argVariants(
         msg += ` || ' (operation: ' || operation || ')'`;
       }
     }
-    const sqlDef = base.replace(/___/, args).replace(/%MSG%/, msg);
+    const sqlDef = base
+      .replace(args.length ? /___/ : /___,?/, args)
+      .replace(/%MSG%/, msg);
     return {
       sqlDefs: [addWhen("before")(sqlDef), addWhen("after")(sqlDef)],
       argCount,
@@ -352,6 +354,9 @@ describe("equivalent functions", () => {
         let postTupleName = "";
         let preOp = "";
         let postOp = "";
+        if (argCount === 0) {
+          preName = postName = " (no args)";
+        }
         if (argCount >= 1) {
           preName = postName = "; name: Bobby Tables";
         }
@@ -382,12 +387,12 @@ describe("equivalent functions", () => {
               messages: [
                 {
                   level: "info",
-                  message: "before user insert mutation; name: Bobby Tables",
+                  message: `before user insert mutation${preName}${preTupleName}${preOp}`,
                   path: ["input", "user", "name"],
                 },
                 {
                   level: "info",
-                  message: "after user insert mutation; name: Bobby Tables",
+                  message: `after user insert mutation${postName}${postTupleName}${postOp}`,
                   path: ["input", "user", "name"],
                 },
               ],

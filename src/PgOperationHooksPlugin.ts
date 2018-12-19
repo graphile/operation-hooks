@@ -2,6 +2,7 @@ import { Plugin, Build, Context, Scope } from "graphile-build";
 import { OperationHookCallback, OperationHook } from "./OperationHooksPlugin";
 import { PgClass, PgProc, PgType, PgAttribute } from "graphile-build-pg";
 import { GraphQLResolveInfoWithMessages } from "./OperationMessagesPlugin";
+import { requireChildColumn } from "graphile-utils/node8plus/fieldHelpers";
 
 type SQL = any;
 type BeforeOrAfter = "before" | "after";
@@ -24,13 +25,14 @@ const get = (obj: any, path: string[]) => {
 interface FunctionSpec {
   isArray: boolean;
   path: string[];
-  makeArgs: ((args: any) => SQL);
+  makeArgs: ((args: any, input: any) => SQL);
 }
 
 function getFunctionSpec(
   build: Build,
   proc: PgProc,
   sqlOp: SqlOp,
+  when: BeforeOrAfter,
   scope: Scope<any>
 ): FunctionSpec {
   const {
@@ -113,7 +115,7 @@ function getFunctionSpec(
   } else {
     // Nothing
   }
-  const makeArgs = (args: any): SQL => {
+  const makeArgs = (args: any, input: any): SQL => {
     const parts = [];
     if (hasJson) {
       const data = path.length ? get(args, path) : null;
@@ -125,46 +127,71 @@ function getFunctionSpec(
     }
     if (hasRow) {
       let rowSql: SQL;
-      if (sqlOp === "insert") {
+      if (
+        (sqlOp === "insert" && when === "before") ||
+        (sqlOp === "delete" && when === "after")
+      ) {
         rowSql = sql.null;
-      } else if (constraint) {
-        const sqlTuple = sql.identifier(Symbol());
-        rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
-          constraint.keyAttributes.map(
-            (key: PgAttribute) =>
-              sql.fragment`${sql.identifier(key.name)} = ${gql2pg(
-                args.input[inflection.column(key)],
-                key.type,
-                key.typeModifier
-              )}`
-          ),
-          ") and ("
-        )}))`;
-      } else if (isPgNodeMutation) {
-        const nodeId = args.input[nodeIdFieldName];
-        const { Type, identifiers } = getTypeAndIdentifiersFromNodeId(nodeId);
-        if (Type !== TableType) {
-          throw new Error("Mismatched type");
-        }
-        if (identifiers.length !== primaryKeys.length) {
-          throw new Error("Invalid ID");
-        }
-        const sqlTuple = sql.identifier(Symbol());
-        rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
-          primaryKeys.map(
-            (key: PgAttribute, idx: number) =>
-              sql.fragment`${sqlTuple}.${sql.identifier(key.name)} = ${gql2pg(
-                identifiers[idx],
-                key.type,
-                key.typeModifier
-              )}`
-          ),
-          ") and ("
-        )}))`;
       } else {
-        throw new Error(
-          `Don't know how to determine row for PgOperationHooksPlugin, mutation '${fieldName}'`
-        );
+        if ((sqlOp === "insert" || sqlOp === "update") && when === "after") {
+          if (!primaryKeyConstraint) {
+            throw new Error(
+              `Table has no primary key, cannot pass row to ${
+                proc.namespaceName
+              }.${proc.name}`
+            );
+          }
+          const sqlTuple = sql.identifier(Symbol());
+          rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
+            primaryKeyConstraint.keyAttributes.map(
+              (key: PgAttribute) =>
+                sql.fragment`${sql.identifier(key.name)} = ${gql2pg(
+                  input.data[`@ophookpk__${key.name}`],
+                  key.type,
+                  key.typeModifier
+                )}`
+            ),
+            ") and ("
+          )}))`;
+        } else if (constraint) {
+          const sqlTuple = sql.identifier(Symbol());
+          rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
+            constraint.keyAttributes.map(
+              (key: PgAttribute) =>
+                sql.fragment`${sql.identifier(key.name)} = ${gql2pg(
+                  args.input[inflection.column(key)],
+                  key.type,
+                  key.typeModifier
+                )}`
+            ),
+            ") and ("
+          )}))`;
+        } else if (isPgNodeMutation) {
+          const nodeId = args.input[nodeIdFieldName];
+          const { Type, identifiers } = getTypeAndIdentifiersFromNodeId(nodeId);
+          if (Type !== TableType) {
+            throw new Error("Mismatched type");
+          }
+          if (identifiers.length !== primaryKeys.length) {
+            throw new Error("Invalid ID");
+          }
+          const sqlTuple = sql.identifier(Symbol());
+          rowSql = sql.fragment`(select ${sqlTuple} from ${sqlTable} ${sqlTuple} where (${sql.join(
+            primaryKeys.map(
+              (key: PgAttribute, idx: number) =>
+                sql.fragment`${sqlTuple}.${sql.identifier(key.name)} = ${gql2pg(
+                  identifiers[idx],
+                  key.type,
+                  key.typeModifier
+                )}`
+            ),
+            ") and ("
+          )}))`;
+        } else {
+          throw new Error(
+            `Don't know how to determine row for PgOperationHooksPlugin, mutation '${fieldName}'`
+          );
+        }
       }
       parts.push(
         sql.fragment`${rowSql}::${sql.identifier(
@@ -195,9 +222,10 @@ function sqlFunctionToCallback(
   build: Build,
   proc: PgProc,
   sqlOp: SqlOp,
+  when: BeforeOrAfter,
   scope: Scope<any>
 ): OperationHookCallback {
-  const spec = getFunctionSpec(build, proc, sqlOp, scope);
+  const spec = getFunctionSpec(build, proc, sqlOp, when, scope);
   return async (
     input,
     args,
@@ -214,7 +242,7 @@ function sqlFunctionToCallback(
     const sqlFunctionCall = sql.fragment`${sql.identifier(
       proc.namespaceName,
       proc.name
-    )}(${spec.makeArgs(args)})`;
+    )}(${spec.makeArgs(args, input)})`;
     // )}(${sql.value(JSON.stringify(args))}::json)`;
     const source = spec.isArray
       ? sql.fragment`unnest(${sqlFunctionCall})`
@@ -237,11 +265,7 @@ function sqlFunctionToCallback(
   };
 }
 
-function getCallSQLFunction(
-  build: Build,
-  fieldContext: Context<any>,
-  when: BeforeOrAfter
-): OperationHookCallback | null {
+const matchContext = (fieldContext: Context<any>) => {
   const { scope } = fieldContext;
   const {
     isRootMutation,
@@ -266,6 +290,22 @@ function getCallSQLFunction(
   if (sqlOp === null) {
     return null;
   }
+  return {
+    table,
+    sqlOp,
+  };
+};
+
+function getCallSQLFunction(
+  build: Build,
+  fieldContext: Context<any>,
+  when: BeforeOrAfter
+): OperationHookCallback | null {
+  const match = matchContext(fieldContext);
+  if (!match) {
+    return null;
+  }
+  const { table, sqlOp } = match;
   const name = build.inflection.pgOperationHookFunctionName(
     table,
     sqlOp,
@@ -276,11 +316,18 @@ function getCallSQLFunction(
     (proc: PgProc) => proc.name === name
   );
   if (sqlFunction) {
-    return sqlFunctionToCallback(build, sqlFunction, sqlOp, scope);
+    return sqlFunctionToCallback(
+      build,
+      sqlFunction,
+      sqlOp,
+      when,
+      fieldContext.scope
+    );
   }
   return null;
 }
 
+// tslint:disable-next-line no-shadowed-variable
 const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
   builder
 ) {
@@ -296,6 +343,24 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
       },
     })
   );
+
+  builder.hook("GraphQLObjectType:fields:field", (field, build, context) => {
+    const match = matchContext(context);
+    if (!match || match.sqlOp === "delete") {
+      return field;
+    }
+    // INSERT or UPDATE, we need to request the primary key(s)
+    const primaryKeyConstraint = match.table.primaryKeyConstraint;
+    if (!primaryKeyConstraint) {
+      return field;
+    }
+    // Request the fields...
+    primaryKeyConstraint.keyAttributes.forEach((attr: PgAttribute) =>
+      requireChildColumn(build, context, attr.name, `@ophookpk__${attr.name}`)
+    );
+    return field;
+  });
+
   builder.hook("init", (_, build) => {
     if (!build.pgIntrospectionResultsByKind) {
       // Clearly we're not running in PostGraphile, abort.
