@@ -1,0 +1,103 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`updating change name by id is passed correct arguments 1`] = `
+Object {
+  "data": Object {
+    "updateUserById": Object {
+      "messages": Array [
+        Object {
+          "level": "info",
+          "message": "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
+          "path": Array [
+            "input",
+            "userPatch",
+            "name",
+          ],
+        },
+        Object {
+          "level": "info",
+          "message": "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
+          "path": Array [
+            "input",
+            "userPatch",
+            "name",
+          ],
+        },
+      ],
+      "user": Object {
+        "id": "[NUMBER]",
+        "name": "ZEB ZOB",
+        "nodeId": "[NodeId]",
+      },
+    },
+  },
+}
+`;
+
+exports[`updating change name by multi-column unique constraint is passed correct arguments 1`] = `
+Object {
+  "data": Object {
+    "updateUserByCountryCodeAndCountryIdentificationNumber": Object {
+      "messages": Array [
+        Object {
+          "level": "info",
+          "message": "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
+          "path": Array [
+            "input",
+            "userPatch",
+            "name",
+          ],
+        },
+        Object {
+          "level": "info",
+          "message": "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
+          "path": Array [
+            "input",
+            "userPatch",
+            "name",
+          ],
+        },
+      ],
+      "user": Object {
+        "id": "[NUMBER]",
+        "name": "ZEB ZOB",
+        "nodeId": "[NodeId]",
+      },
+    },
+  },
+}
+`;
+
+exports[`updating change name by nodeId is passed correct arguments 1`] = `
+Object {
+  "data": Object {
+    "updateUser": Object {
+      "messages": Array [
+        Object {
+          "level": "info",
+          "message": "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
+          "path": Array [
+            "input",
+            "userPatch",
+            "name",
+          ],
+        },
+        Object {
+          "level": "info",
+          "message": "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
+          "path": Array [
+            "input",
+            "userPatch",
+            "name",
+          ],
+        },
+      ],
+      "user": Object {
+        "id": "[NUMBER]",
+        "name": "ZEB ZOB",
+        "nodeId": "[NodeId]",
+      },
+    },
+  },
+}
+`;
