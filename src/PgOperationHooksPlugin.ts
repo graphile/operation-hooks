@@ -114,6 +114,7 @@ function getFunctionSpec(
     path = ["input", inputFieldName];
   } else {
     // Nothing
+    path = [];
   }
   const makeArgs = (args: any, input: any): SQL => {
     const parts = [];

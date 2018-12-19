@@ -1,4 +1,4 @@
-// tslint:disable no-console array-type
+// tslint:disable no-console array-type prefer-conditional-expression
 import { graphql, GraphQLSchema, GraphQLError } from "graphql";
 import { Plugin } from "graphile-build";
 import {
@@ -208,7 +208,7 @@ function argVariants(
         msg = ` || ' (no args)'`;
       } else {
         if (argCount >= 1) {
-          msg += ` || '; name: ' || (data ->> 'name') || ''`;
+          msg += ` || '; name: ' || coalesce((data ->> 'name'), '¤') || ''`;
         }
         if (argCount >= 2) {
           msg += ` || ' (tuple.name: ' || coalesce(tuple.name, '¤') || ')'`;
@@ -230,8 +230,8 @@ function argVariants(
   };
   return [
     ...variantsForOp("insert"),
-    //...variantsForOp("update"),
-    //...variantsForOp("delete"),
+    ...variantsForOp("update"),
+    ...variantsForOp("delete"),
   ];
 }
 
@@ -308,7 +308,7 @@ describe("equivalent functions", () => {
       funcArgses: [funcArgs],
       funcReturnses: [funcReturns],
     } = setupTeardownFunctions(...sqlDefs);
-    describe(`hook accepting (${argCount} args) '${funcArgs
+    describe(`${op} hook accepting (${argCount} args) '${funcArgs
       .replace(/\n/g, " ")
       .replace(/\s+/g, " ")
       .trim()}' returning '${
@@ -337,22 +337,52 @@ describe("equivalent functions", () => {
         expect(resolveInfos.length).toEqual(0);
         const data = await postgraphql(
           schema,
-          `
-            mutation {
-              createUser(input: { user: { name: "Bobby Tables", countryCode: "RM", countryIdentificationNumber: "987654321" } }) {
-                user {
-                  nodeId
-                  id
-                  name
+          op === "insert"
+            ? `
+                mutation {
+                  result: createUser(input: { user: { name: "Bobby Tables", countryCode: "RM", countryIdentificationNumber: "987654321" } }) {
+                    user {
+                      nodeId
+                      id
+                      name
+                    }
+                    messages {
+                      level
+                      message
+                      path
+                    }
+                  }
                 }
-                messages {
-                  level
-                  message
-                  path
+              `
+            : op === "update"
+            ? `
+                mutation {
+                  result: updateUserById(input: { id: 1, userPatch: { name: "Bobby Tables", countryCode: "RM", countryIdentificationNumber: "987654321" } }) {
+                    user {
+                      nodeId
+                      id
+                      name
+                    }
+                    messages {
+                      level
+                      message
+                      path
+                    }
+                  }
                 }
-              }
-            }
-          `
+              `
+            : `
+                mutation {
+                  result: deleteUserById(input: { id: 1 }) {
+                    deletedUserId
+                    messages {
+                      level
+                      message
+                      path
+                    }
+                  }
+                }
+              `
         );
         expect(data.errors).toBeFalsy();
         expect(resolveInfos.length).toEqual(1);
@@ -373,52 +403,68 @@ describe("equivalent functions", () => {
           preName = postName = " (no args)";
         }
         if (argCount >= 1) {
-          preName = postName = "; name: Bobby Tables";
+          if (op === "delete") {
+            preName = postName = "; name: ¤";
+          } else {
+            preName = postName = "; name: Bobby Tables";
+          }
         }
         if (argCount >= 2) {
-          preTupleName = " (tuple.name: ¤)";
-          postTupleName = " (tuple.name: BOBBY TABLES)";
+          if (op === "insert") {
+            preTupleName = " (tuple.name: ¤)";
+          } else {
+            preTupleName = " (tuple.name: UZR VUN)";
+          }
+          if (op === "delete") {
+            postTupleName = " (tuple.name: ¤)";
+          } else {
+            postTupleName = " (tuple.name: BOBBY TABLES)";
+          }
         }
         if (argCount >= 3) {
-          preOp = postOp = " (operation: insert)";
+          preOp = postOp = ` (operation: ${op})`;
         }
+        const pathPrefix =
+          op === "insert"
+            ? ["input", "user"]
+            : op === "update"
+            ? ["input", "userPatch"]
+            : [];
         expect(resolveInfos[0].graphileMeta.messages).toEqual([
           {
             code: "INFO1",
             level: "info",
-            message: `before user insert mutation${preName}${preTupleName}${preOp}`,
-            path: ["input", "user", "name"],
+            message: `before user ${op} mutation${preName}${preTupleName}${preOp}`,
+            path: [...pathPrefix, "name"],
           },
           {
             code: "INFO1",
             level: "info",
-            message: `after user insert mutation${postName}${postTupleName}${postOp}`,
-            path: ["input", "user", "name"],
+            message: `after user ${op} mutation${postName}${postTupleName}${postOp}`,
+            path: [...pathPrefix, "name"],
           },
         ]);
-        expect(snapshotSanitise(data)).toEqual({
-          data: {
-            createUser: {
-              messages: [
-                {
-                  level: "info",
-                  message: `before user insert mutation${preName}${preTupleName}${preOp}`,
-                  path: ["input", "user", "name"],
-                },
-                {
-                  level: "info",
-                  message: `after user insert mutation${postName}${postTupleName}${postOp}`,
-                  path: ["input", "user", "name"],
-                },
-              ],
-              user: {
-                id: "[NUMBER]",
-                name: "BOBBY TABLES",
-                nodeId: "[NodeId]",
-              },
-            },
+        expect(snapshotSanitise(data.data.result.messages)).toEqual([
+          {
+            level: "info",
+            message: `before user ${op} mutation${preName}${preTupleName}${preOp}`,
+            path: [...pathPrefix, "name"],
           },
-        });
+          {
+            level: "info",
+            message: `after user ${op} mutation${postName}${postTupleName}${postOp}`,
+            path: [...pathPrefix, "name"],
+          },
+        ]);
+        if (op === "delete") {
+          expect(data.data.result.deletedUserId).toEqual("WyJ1c2VycyIsMV0=");
+        } else {
+          expect(snapshotSanitise(data.data.result.user)).toEqual({
+            id: "[NUMBER]",
+            name: "BOBBY TABLES",
+            nodeId: "[NodeId]",
+          });
+        }
       });
     });
   });
