@@ -84,9 +84,16 @@ beforeAll(async () => {
   drop schema if exists operation_hooks cascade;
   create schema operation_hooks;
 
-  create table users (id serial primary key, name text not null);
-  insert into users (id, name) values
-    (1, 'Uzr Vun');
+  create table users (
+    id serial primary key,
+     name text not null,
+     country_code text not null,
+     country_identification_number text not null,
+     unique (country_code, country_identification_number)
+  );
+
+  insert into users (id, name, country_code, country_identification_number) values
+    (1, 'Uzr Vun', 'UK', '123456789');
 
   select setval('users_id_seq', 1000);
 
@@ -276,7 +283,7 @@ describe("equivalent functions", () => {
           schema,
           `
             mutation {
-              createUser(input: { user: { name: "Bobby Tables" } }) {
+              createUser(input: { user: { name: "Bobby Tables", countryCode: "RM", countryIdentificationNumber: "987654321" } }) {
                 user {
                   nodeId
                   id
