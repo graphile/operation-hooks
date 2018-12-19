@@ -416,6 +416,28 @@ $$ language sql volatile set search_path from current;`;
         }
       `,
     },
+    {
+      name: "change name by multi-column unique constraint",
+      beforeSql: info1Before,
+      afterSql: info1After,
+      messages: info1Messages,
+      graphqlMutation: `
+        mutation {
+          updateUserByCountryCodeAndCountryIdentificationNumber(input: { countryCode: "UK", countryIdentificationNumber: "123456789", userPatch: { name: "Zeb Zob" } }) {
+            user {
+              nodeId
+              id
+              name
+            }
+            messages {
+              level
+              message
+              path
+            }
+          }
+        }
+      `,
+    },
   ].forEach(({ beforeSql, afterSql, name, graphqlMutation, messages }) => {
     const { sqlSetup, sqlTeardown } = setupTeardownFunctions(
       beforeSql,
