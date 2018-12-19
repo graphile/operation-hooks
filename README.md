@@ -178,7 +178,10 @@ definitions, so be careful to not expose more information than you intend!
 ## SQL hooks
 
 Adding this schema plugin to a PostGraphile server will give you the ability
-to define mutation operation hooks via PostgreSQL functions.
+to define mutation operation hooks via PostgreSQL functions. These hooks only
+apply to the built in CRUD mutations, for custom mutations or schema
+extensions you should implement the logic within the mutation (or use the JS
+hooks interface).
 
 ### SQL function requirements
 
@@ -187,20 +190,37 @@ conform the the following requirements:
 
 - Must be defined in an exposed schema (may be lifted in future)
 - Must be named according to the SQL Operation Callback Naming Convention (see below)
-- Must accept one JSON or JSONB argument, which represents the `args` value
-  passed to the mutation (this is JSON/JSONB to allow us to exactly represent
-  what PostGraphile received, including representing missing keys/etc)
-- Must return either `VOID` or, if `--operation-message-identifier` is
-  specified, an array of the specified type
-- Must be either `VOLATILE` (default) or `STABLE` (note: can only be `STABLE`
+- Must accept the first 0, 1, 2 or 3 of the following arguments:
+  - `data` (JSON/JSONB) - the data the user submitted to be stored to the record (INSERT: the create object, UPDATE: the patch object, DELETE: `null`)
+  - `tuple` (table type) - the current row in the database (because we expose a lot of methods to mutate the same row)
+    - before insert: `null`
+    - after insert: the new row, using the primary key
+    - before update: the old row, using the unique constraint
+    - after update: the new row, using the primary key
+    - before delete: the old row, using the unique constraint
+    - after delete: `null`
+  - `op` (string) - the operation (`insert`, `update`, or `delete`) - useful if you want to share the same function between multiple operations
+- Must return:
+  - `VOID`, or
+  - `SETOF mutation_message`, or
+  - `mutation_message[]`, or
+  - `TABLE(level text, message text, path text[], ...)`
+  - or can be defined using `OUT` parameters matching the `TABLE` entries above.
+- Must be either `VOLATILE` (default) or `STABLE` (note: should only be `STABLE`
   if it does not return `VOID`)
 
 Recommendation: add an `@omit` smart comment to the function to have it
 excluded from the GraphQL schema.
 
-Example:
+#### Example
+
+SQL schema:
 
 ```sql
+create table users (
+  id serial primary key,
+  username text not null unique
+);
 create type mutation_message as (
   level text,
   message text,
@@ -208,31 +228,76 @@ create type mutation_message as (
   code text
 );
 
-create function "mutation_createUser_before"(input jsonb)
+create or replace function users_insert_before(input jsonb)
 returns mutation_message[]
 as $$
-  select array[(
-    'error',
-    'We''ve not implemented createUser yet; check back later',
-    null,
-    '501'
-  )::mutation_message];
-$$ language sql stable;
+begin
+  if lower(input ->> 'username') <> (input ->> 'username') then
+    return array[(
+      'error',
+      'Your username must be in lowercase',
+      null,
+      'E83245'
+    )::mutation_message];
+  else
+    return array[(
+      'info',
+      'Nice to meet you, ' || (input ->> 'username'),
+      null,
+      null
+    )::mutation_message];
+  end if;
+end;
+$$ language plpgsql stable;
 
-comment on function "mutation_createUser_before"(jsonb) is E'@omit';
+comment on function users_insert_before(jsonb) is E'@omit';
 ```
 
-(To see this working, run this SQL: `select * from unnest("mutation_createUser_before"('{}'::jsonb));`)
+GraphQL mutation:
+
+```graphql
+mutation {
+  createUser(input: { user: { username: "alice" } }) {
+    user {
+      username
+    }
+    messages {
+      level
+      message
+    }
+  }
+}
+```
+
+Result:
+
+```json
+{
+  "data": {
+    "createUser": {
+      "user": {
+        "username": "alice"
+      },
+      "messages": [
+        {
+          "level": "info",
+          "message": "Nice to meet you, alice"
+        }
+      ]
+    }
+  }
+}
+```
 
 ### SQL operation callback naming convention
 
 By default we use the following naming convention:
 
-- start with the GraphQL operation type and an underscore (e.g. `mutation_`)
-- followed by the GraphQL mutation name (e.g. `createUser`)
+- start with the GraphQL table name and an underscore (e.g. `users_`)
+- followed by the SQL operation name, lowercase (`insert`, `update` or `delete`)
 - followed by `_before` or `_after` to indicate when it runs
 
-e.g. `"mutation_createUser_before"`
+e.g. `users_insert_before`
 
 You can override this using the inflector `pgOperationHookFunctionName`:
 
@@ -241,21 +306,8 @@ const { makeAddInflectorsPlugin } = require("graphile-utils");
 
 module.exports = makeAddInflectorsPlugin(
   {
-    pgOperationHookFunctionName: (fieldContext, when) => {
-      const {
-        scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription },
-      } = fieldContext;
-      const operationType = isRootQuery
-        ? "query"
-        : isRootMutation
-        ? "mutation"
-        : isRootSubscription
-        ? "subscription"
-        : null;
-      if (operationType === null) {
-        throw new Error("Invalid fieldContext passed to inflector");
-      }
-      return `${operationType}_${fieldName}_${when.toLowerCase()}`;
+    pgOperationHookFunctionName: (table, sqlOp, when, _fieldContext) => {
+      return `${table.name}_${sqlOp}_${when.toLowerCase()}`;
     },
   },
   true
