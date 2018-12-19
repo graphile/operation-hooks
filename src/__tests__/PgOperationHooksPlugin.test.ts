@@ -201,7 +201,8 @@ create function users_insert_before(___) returns setof mutation_message as $$
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
-$$ language sql volatile set search_path from current;`,
+$$ language sql volatile set search_path from current;
+`,
     "users"
   ),
   ...argVariants(
@@ -213,7 +214,8 @@ create function users_insert_before(___) returns mutation_message[] as $$
     ARRAY['name'],
     'INFO1'
   )::mutation_message]
-$$ language sql volatile set search_path from current;`,
+$$ language sql volatile set search_path from current;
+`,
     "users"
   ),
   ...argVariants(
@@ -229,7 +231,8 @@ create function users_insert_before(___) returns table(
     'Pre user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['name'],
     'INFO1';
-$$ language sql volatile set search_path from current;`,
+$$ language sql volatile set search_path from current;
+`,
     "users"
   ),
   ...argVariants(
@@ -246,7 +249,8 @@ create function users_insert_before(
     'Pre user insert mutation; name: ' || (data ->> 'name'),
     ARRAY['name'],
     'INFO1';
-$$ language sql volatile set search_path from current;`,
+$$ language sql volatile set search_path from current;
+`,
     "users",
     "in"
   ),
