@@ -1,4 +1,4 @@
-// tslint:disable no-console
+// tslint:disable no-console array-type
 import { graphql, GraphQLSchema, GraphQLError } from "graphql";
 import { Plugin } from "graphile-build";
 import {
@@ -21,7 +21,7 @@ const setupTeardownFunctions = (...sqlDefs: string[]) => {
   const funcReturnses: string[] = [];
   sqlDefs.forEach(sqlDef => {
     const matches = sqlDef.match(
-      /create function ([a-z0-9_]+)\(([^)]+)\) (?:returns ([\s\S]*) )?as \$\$/
+      /create function ([a-z0-9_]+)\(([^)]*)\) (?:returns ([\s\S]*) )?as \$\$/
     );
     if (!matches) {
       throw new Error(`Don't understand SQL definition ${sqlDef}!`);
@@ -180,23 +180,42 @@ function argVariants(
   base: string,
   type: string,
   rawPrefix: string = ""
-): [string, string][] {
+): { sqlDefs: string[]; argCount: number }[] {
   const prefix = rawPrefix ? rawPrefix + " " : "";
   const addWhen = (when: string) => (sql: string) =>
     sql.replace(/%WHEN%/g, when);
-  const variantsWithArgs = [
-    `${prefix}data json`,
-    `${prefix}data jsonb`,
-    `${prefix}data json, ${prefix}tuple ${type}`,
-    `${prefix}data jsonb, ${prefix}tuple ${type}`,
-    `${prefix}data json, ${prefix}tuple ${type}, ${prefix}operation text`,
-  ].map(str => base.replace(/___/, str));
-  return variantsWithArgs.map(
-    (str: string): [string, string] => [
-      addWhen("before")(str),
-      addWhen("after")(str),
-    ]
-  );
+  return [
+    { args: `` },
+    { args: `${prefix}data json` },
+    { args: `${prefix}data jsonb` },
+    { args: `${prefix}data json, ${prefix}tuple ${type}` },
+    { args: `${prefix}data jsonb, ${prefix}tuple ${type}` },
+    {
+      args: `${prefix}data json, ${prefix}tuple ${type}, ${prefix}operation text`,
+    },
+  ].map(({ args }) => {
+    const argCount =
+      args.trim().length === 0 ? 0 : args.replace(/[^,]/g, "").length + 1;
+    let msg: string = "";
+    if (argCount === 0) {
+      msg = ` || ' (no args)'`;
+    } else {
+      if (argCount >= 1) {
+        msg += ` || '; name: ' || (data ->> 'name') || ''`;
+      }
+      if (argCount >= 2) {
+        msg += ` || ' (tuple.name: ' || coalesce(tuple.name, '¤') || ')'`;
+      }
+      if (argCount >= 3) {
+        msg += ` || ' (operation: ' || operation || ')'`;
+      }
+    }
+    const sqlDef = base.replace(/___/, args).replace(/%MSG%/, msg);
+    return {
+      sqlDefs: [addWhen("before")(sqlDef), addWhen("after")(sqlDef)],
+      argCount,
+    };
+  });
 }
 
 const equivalentFunctions = [
@@ -205,7 +224,7 @@ const equivalentFunctions = [
 create function users_insert_%WHEN%(___) returns setof mutation_message as $$
   select row(
     'info',
-    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation' %MSG%,
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
@@ -218,7 +237,7 @@ $$ language sql volatile set search_path from current;
 create function users_insert_%WHEN%(___) returns mutation_message[] as $$
   select ARRAY[row(
     'info',
-    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation' %MSG%,
     ARRAY['name'],
     'INFO1'
   )::mutation_message]
@@ -236,7 +255,7 @@ create function users_insert_%WHEN%(___) returns table(
 ) as $$
   select 
     'info',
-    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation' %MSG%,
     ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;
@@ -254,7 +273,7 @@ create function users_insert_%WHEN%(
 ) as $$
   select 
     'info',
-    '%WHEN% user insert mutation; name: ' || (data ->> 'name'),
+    '%WHEN% user insert mutation' %MSG%,
     ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;
@@ -265,14 +284,14 @@ $$ language sql volatile set search_path from current;
 ];
 
 describe("equivalent functions", () => {
-  equivalentFunctions.forEach(sqlDef => {
+  equivalentFunctions.forEach(({ sqlDefs, argCount }) => {
     const {
       sqlSetup,
       sqlTeardown,
       funcArgses: [funcArgs],
       funcReturnses: [funcReturns],
-    } = setupTeardownFunctions(...sqlDef);
-    describe(`hook accepting '${funcArgs
+    } = setupTeardownFunctions(...sqlDefs);
+    describe(`hook accepting (${argCount} args) '${funcArgs
       .replace(/\n/g, " ")
       .replace(/\s+/g, " ")
       .trim()}' returning '${
@@ -327,17 +346,33 @@ describe("equivalent functions", () => {
         expect(resolveInfos[0].graphileMeta.messages[1].message).toMatch(
           /after user insert mutation/
         );
+        let preName = "";
+        let postName = "";
+        let preTupleName = "";
+        let postTupleName = "";
+        let preOp = "";
+        let postOp = "";
+        if (argCount >= 1) {
+          preName = postName = "; name: Bobby Tables";
+        }
+        if (argCount >= 2) {
+          preTupleName = " (tuple.name: ¤)";
+          postTupleName = " (tuple.name: BOBBY TABLES)";
+        }
+        if (argCount >= 3) {
+          preOp = postOp = " (operation: insert)";
+        }
         expect(resolveInfos[0].graphileMeta.messages).toEqual([
           {
             code: "INFO1",
             level: "info",
-            message: "before user insert mutation; name: Bobby Tables",
+            message: `before user insert mutation${preName}${preTupleName}${preOp}`,
             path: ["input", "user", "name"],
           },
           {
             code: "INFO1",
             level: "info",
-            message: "after user insert mutation; name: Bobby Tables",
+            message: `after user insert mutation${postName}${postTupleName}${postOp}`,
             path: ["input", "user", "name"],
           },
         ]);
