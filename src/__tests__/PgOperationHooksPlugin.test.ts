@@ -92,6 +92,14 @@ beforeAll(async () => {
      unique (country_code, country_identification_number)
   );
 
+  create function uppercase_name() returns trigger as $$
+    begin
+      NEW.name = upper(NEW.name);
+      return NEW;
+    end;
+  $$ language plpgsql;
+  create trigger _200_uppercase_name before insert or update on users for each row execute procedure uppercase_name();
+
   insert into users (id, name, country_code, country_identification_number) values
     (1, 'Uzr Vun', 'UK', '123456789');
 
@@ -324,7 +332,7 @@ describe("equivalent functions", () => {
               ],
               user: {
                 id: "[NUMBER]",
-                name: "Bobby Tables",
+                name: "BOBBY TABLES",
                 nodeId: "[NodeId]",
               },
             },
@@ -359,14 +367,14 @@ $$ language sql volatile set search_path from current;`;
       code: "INFO1",
       level: "info",
       message:
-        "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
+        "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
       path: ["input", "userPatch", "name"],
     },
     {
       code: "INFO2",
       level: "info",
       message:
-        "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
+        "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
       path: ["input", "userPatch", "name"],
     },
   ];

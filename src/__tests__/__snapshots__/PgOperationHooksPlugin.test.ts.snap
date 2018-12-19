@@ -7,7 +7,7 @@ Object {
       "messages": Array [
         Object {
           "level": "info",
-          "message": "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
+          "message": "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
           "path": Array [
             "input",
             "userPatch",
@@ -16,7 +16,7 @@ Object {
         },
         Object {
           "level": "info",
-          "message": "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
+          "message": "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
           "path": Array [
             "input",
             "userPatch",
@@ -26,7 +26,7 @@ Object {
       ],
       "user": Object {
         "id": "[NUMBER]",
-        "name": "Zeb Zob",
+        "name": "ZEB ZOB",
         "nodeId": "[NodeId]",
       },
     },
@@ -41,7 +41,7 @@ Object {
       "messages": Array [
         Object {
           "level": "info",
-          "message": "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
+          "message": "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
           "path": Array [
             "input",
             "userPatch",
@@ -50,7 +50,7 @@ Object {
         },
         Object {
           "level": "info",
-          "message": "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
+          "message": "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
           "path": Array [
             "input",
             "userPatch",
@@ -60,7 +60,7 @@ Object {
       ],
       "user": Object {
         "id": "[NUMBER]",
-        "name": "Zeb Zob",
+        "name": "ZEB ZOB",
         "nodeId": "[NodeId]",
       },
     },
@@ -75,7 +75,7 @@ Object {
       "messages": Array [
         Object {
           "level": "info",
-          "message": "Pre user update mutation; old name: Uzr Vun, user request: Zeb Zob",
+          "message": "Pre user update mutation; old name: UZR VUN, user request: Zeb Zob",
           "path": Array [
             "input",
             "userPatch",
@@ -84,7 +84,7 @@ Object {
         },
         Object {
           "level": "info",
-          "message": "Post user update mutation; new name: Zeb Zob, user request: Zeb Zob",
+          "message": "Post user update mutation; new name: ZEB ZOB, user request: Zeb Zob",
           "path": Array [
             "input",
             "userPatch",
@@ -94,7 +94,7 @@ Object {
       ],
       "user": Object {
         "id": "[NUMBER]",
-        "name": "Zeb Zob",
+        "name": "ZEB ZOB",
         "nodeId": "[NodeId]",
       },
     },
