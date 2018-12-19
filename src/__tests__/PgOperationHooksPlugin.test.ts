@@ -180,53 +180,68 @@ function argVariants(
   base: string,
   type: string,
   rawPrefix: string = ""
-): { sqlDefs: string[]; argCount: number }[] {
+): {
+  op: "insert" | "update" | "delete";
+  sqlDefs: string[];
+  argCount: number;
+}[] {
   const prefix = rawPrefix ? rawPrefix + " " : "";
   const addWhen = (when: string) => (sql: string) =>
     sql.replace(/%WHEN%/g, when);
+  const addBefore = addWhen("before");
+  const addAfter = addWhen("after");
+  const variantsForOp = (op: "insert" | "update" | "delete") => {
+    return [
+      { args: `` },
+      { args: `${prefix}data json` },
+      { args: `${prefix}data jsonb` },
+      { args: `${prefix}data json, ${prefix}tuple ${type}` },
+      { args: `${prefix}data jsonb, ${prefix}tuple ${type}` },
+      {
+        args: `${prefix}data json, ${prefix}tuple ${type}, ${prefix}operation text`,
+      },
+    ].map(({ args }) => {
+      const argCount =
+        args.trim().length === 0 ? 0 : args.replace(/[^,]/g, "").length + 1;
+      let msg: string = "";
+      if (argCount === 0) {
+        msg = ` || ' (no args)'`;
+      } else {
+        if (argCount >= 1) {
+          msg += ` || '; name: ' || (data ->> 'name') || ''`;
+        }
+        if (argCount >= 2) {
+          msg += ` || ' (tuple.name: ' || coalesce(tuple.name, '¤') || ')'`;
+        }
+        if (argCount >= 3) {
+          msg += ` || ' (operation: ' || operation || ')'`;
+        }
+      }
+      const sqlDef = base
+        .replace(args.length ? /___/ : /___,?/, args)
+        .replace(/%MSG%/, msg)
+        .replace(/%OP%/g, op);
+      return {
+        op,
+        sqlDefs: [addBefore(sqlDef), addAfter(sqlDef)],
+        argCount,
+      };
+    });
+  };
   return [
-    { args: `` },
-    { args: `${prefix}data json` },
-    { args: `${prefix}data jsonb` },
-    { args: `${prefix}data json, ${prefix}tuple ${type}` },
-    { args: `${prefix}data jsonb, ${prefix}tuple ${type}` },
-    {
-      args: `${prefix}data json, ${prefix}tuple ${type}, ${prefix}operation text`,
-    },
-  ].map(({ args }) => {
-    const argCount =
-      args.trim().length === 0 ? 0 : args.replace(/[^,]/g, "").length + 1;
-    let msg: string = "";
-    if (argCount === 0) {
-      msg = ` || ' (no args)'`;
-    } else {
-      if (argCount >= 1) {
-        msg += ` || '; name: ' || (data ->> 'name') || ''`;
-      }
-      if (argCount >= 2) {
-        msg += ` || ' (tuple.name: ' || coalesce(tuple.name, '¤') || ')'`;
-      }
-      if (argCount >= 3) {
-        msg += ` || ' (operation: ' || operation || ')'`;
-      }
-    }
-    const sqlDef = base
-      .replace(args.length ? /___/ : /___,?/, args)
-      .replace(/%MSG%/, msg);
-    return {
-      sqlDefs: [addWhen("before")(sqlDef), addWhen("after")(sqlDef)],
-      argCount,
-    };
-  });
+    ...variantsForOp("insert"),
+    //...variantsForOp("update"),
+    //...variantsForOp("delete"),
+  ];
 }
 
 const equivalentFunctions = [
   ...argVariants(
     `\
-create function users_insert_%WHEN%(___) returns setof mutation_message as $$
+create function users_%OP%_%WHEN%(___) returns setof mutation_message as $$
   select row(
     'info',
-    '%WHEN% user insert mutation' %MSG%,
+    '%WHEN% user %OP% mutation' %MSG%,
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
@@ -236,10 +251,10 @@ $$ language sql volatile set search_path from current;
   ),
   ...argVariants(
     `\
-create function users_insert_%WHEN%(___) returns mutation_message[] as $$
+create function users_%OP%_%WHEN%(___) returns mutation_message[] as $$
   select ARRAY[row(
     'info',
-    '%WHEN% user insert mutation' %MSG%,
+    '%WHEN% user %OP% mutation' %MSG%,
     ARRAY['name'],
     'INFO1'
   )::mutation_message]
@@ -249,7 +264,7 @@ $$ language sql volatile set search_path from current;
   ),
   ...argVariants(
     `\
-create function users_insert_%WHEN%(___) returns table(
+create function users_%OP%_%WHEN%(___) returns table(
   level text,
   message text,
   path text[],
@@ -257,7 +272,7 @@ create function users_insert_%WHEN%(___) returns table(
 ) as $$
   select 
     'info',
-    '%WHEN% user insert mutation' %MSG%,
+    '%WHEN% user %OP% mutation' %MSG%,
     ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;
@@ -266,7 +281,7 @@ $$ language sql volatile set search_path from current;
   ),
   ...argVariants(
     `
-create function users_insert_%WHEN%(
+create function users_%OP%_%WHEN%(
   ___,
   out level text,
   out message text,
@@ -275,7 +290,7 @@ create function users_insert_%WHEN%(
 ) as $$
   select 
     'info',
-    '%WHEN% user insert mutation' %MSG%,
+    '%WHEN% user %OP% mutation' %MSG%,
     ARRAY['name'],
     'INFO1';
 $$ language sql volatile set search_path from current;
@@ -286,7 +301,7 @@ $$ language sql volatile set search_path from current;
 ];
 
 describe("equivalent functions", () => {
-  equivalentFunctions.forEach(({ sqlDefs, argCount }) => {
+  equivalentFunctions.forEach(({ op, sqlDefs, argCount }) => {
     const {
       sqlSetup,
       sqlTeardown,
@@ -342,11 +357,11 @@ describe("equivalent functions", () => {
         expect(data.errors).toBeFalsy();
         expect(resolveInfos.length).toEqual(1);
         expect(resolveInfos[0].graphileMeta.messages.length).toEqual(2);
-        expect(resolveInfos[0].graphileMeta.messages[0].message).toMatch(
-          /before user insert mutation/
+        expect(resolveInfos[0].graphileMeta.messages[0].message).toContain(
+          `before user ${op} mutation`
         );
         expect(resolveInfos[0].graphileMeta.messages[1].message).toMatch(
-          /after user insert mutation/
+          `after user ${op} mutation`
         );
         let preName = "";
         let postName = "";
