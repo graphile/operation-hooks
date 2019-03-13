@@ -348,9 +348,12 @@ const logCreateMutationsHookFromBuild = build => fieldContext => {
   // a mutation (`isRootMutation`), or a subscription
   // (`isRootSubscription`). Return `null` if we don't want to apply this
   // hook to this `fieldContext`.
+  const {
+    scope: { isRootMutation, isPgCreateMutationField, pgFieldIntrospection },
+  } = fieldContext;
 
   // If your hook should only apply to mutations you can do this:
-  if (!fieldContext.scope.isRootMutation) return null;
+  if (!isRootMutation) return null;
 
   // You can further limit the functions this hook applies to using
   // `fieldContext`, e.g. `fieldContext.scope.fieldName` would allow you to
@@ -358,12 +361,18 @@ const logCreateMutationsHookFromBuild = build => fieldContext => {
   // `fieldContext.scope.isPgCreateMutationField` would tell you that this
   // is a built in CRUD create mutation field:
   // https://github.com/graphile/graphile-engine/blob/7d49f8eeb579d12683f1c0c6579d7b230a2a3008/packages/graphile-build-pg/src/plugins/PgMutationCreatePlugin.js#L253-L254
-  if (!fieldContext.scope.isPgCreateMutationField) return null;
+  if (
+    !isPgCreateMutationField ||
+    !pgFieldIntrospection ||
+    pgFieldIntrospection.kind !== "class"
+  ) {
+    return null;
+  }
 
   // By this point, we're applying the hook to all create mutations
 
   // Defining the callback up front makes the code easier to read.
-  const tableName = fieldContext.pgIntrospection.name;
+  const tableName = pgFieldIntrospection.name;
   const logAttempt = (input, args, context, resolveInfo) => {
     console.log(
       `A create was attempted on table ${tableName} by ${
@@ -412,7 +421,7 @@ const logCreateMutationsHookFromBuild = build => fieldContext => {
 
 // This exports a standard Graphile Engine plugin that adds the operation
 // hook.
-export default function MyOperationHookPlugin(builder) {
+module.exports = function MyOperationHookPlugin(builder) {
   builder.hook("init", (_, build) => {
     // Register our operation hook (passing it the build object):
     build.addOperationHook(logCreateMutationsHookFromBuild(build));
@@ -421,7 +430,7 @@ export default function MyOperationHookPlugin(builder) {
     // it.
     return _;
   });
-}
+};
 ```
 
 ## Caveats
