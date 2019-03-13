@@ -330,7 +330,13 @@ implemented using the JavaScript interface). To do so, you use the
 `addOperationHook` API introduced by this plugin. This allows you to write a
 single function that handles all root-level queries, mutations and
 subscriptions; it's then your responsibility to filter this down to what you
-need. (We'll probably make a helper for this in future!) An example follows:
+need. (We'll probably make a helper for this in future!)
+
+You can load your plugin with the standard `--append-plugins` (library:
+`appendPlugins`) option.
+
+What follows is an example plugin, you can see it in use in [this example
+repository](https://github.com/graphile/operation-hooks-example).
 
 ```js
 // This plugin logs all attempts at `create` mutations before they're attempted.
