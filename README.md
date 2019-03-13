@@ -42,7 +42,7 @@ const { postgraphile, makePluginHook } = require("postgraphile");
 // This is how we load server plugins into PostGraphile
 // See: https://www.graphile.org/postgraphile/plugins/
 const pluginHook = makePluginHook([
-  require("@graphile/operation-hooks"),
+  require("@graphile/operation-hooks").default,
   // Any more PostGraphile server plugins here
 ]);
 
@@ -50,13 +50,22 @@ const postGraphileMiddleware = postgraphile(DATABASE_URL, SCHEMA_NAME, {
   pluginHook,
   operationMessages: true,
   operationMessagesPreflight: true,
-  // ...
+  appendPlugins: [
+    // Add your JS hooks here, e.g.
+    // require('./path/to/my_hook.js')
+  ],
 });
 
 // This example uses `http` but you can use Express, Koa, etc.
 require("http")
   .createServer(postGraphileMiddleware)
   .listen(5000);
+
+/*
+const app = express();
+express.use(postGraphileMiddleware);
+express.listen(5000);
+*/
 ```
 
 If you want to just use the Graphile Engine plugins without the PostGraphile
