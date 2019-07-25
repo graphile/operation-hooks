@@ -275,7 +275,7 @@ const matchContext = (fieldContext: Context<any>) => {
     isPgCreateMutationField,
     pgFieldIntrospection: table,
   } = scope;
-  if (!isRootMutation) {
+  if (!isRootMutation || !table) {
     return null;
   }
   if (table.kind !== "class") {
