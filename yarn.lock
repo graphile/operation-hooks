@@ -1498,11 +1498,11 @@ graphile-build@^4.1.0-rc.2:
     semver "^5.6.0"
 
 graphile-utils@^4.1.0-rc.2:
-  version "4.1.0-rc.2"
-  resolved "https://registry.yarnpkg.com/graphile-utils/-/graphile-utils-4.1.0-rc.2.tgz#b10155d25b81674061281853ee80a25cf6df28a3"
-  integrity sha512-1LlxF3H2YGcZfcHKNMrmTP5rw5DUb2cR0NCHn0+/tZwHcsg+SEuf6L9W7L/GYoKRRZJLTjchP1XqLMOSnDWL0Q==
+  version "4.4.1"
+  resolved "https://registry.yarnpkg.com/graphile-utils/-/graphile-utils-4.4.1.tgz#88efb2cc1e54f7b7371a88437c0bea27852d3131"
+  integrity sha512-UUPTW1eTsf0DSrPB1aHlpSgFwvBOrBqFpQjkHf0X99aXWsY5leXraApToles8q//qkpVFjVADsD1zSCu2uBoAQ==
   dependencies:
-    debug ">=2 <3"
+    debug "^4.1.1"
     graphql ">=0.9 <0.14 || ^14.0.2"
 
 graphql-iso-date@^3.6.0:
