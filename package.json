@@ -31,6 +31,10 @@
   "homepage": "https://github.com/graphile/operation-hooks#readme",
   "devDependencies": {
     "@types/jest": "^23.3.9",
+    "@typescript-eslint/eslint-plugin": "^1.13.0",
+    "@typescript-eslint/parser": "^1.13.0",
+    "@typescript-eslint/typescript-estree": "^1.13.0",
+    "eslint": "^6.1.0",
     "graphile-build": "^4.1.0-rc.2",
     "jest": "^23.6.0",
     "postgraphile": "^4.4.1",
