@@ -278,7 +278,7 @@ const matchContext = (fieldContext: Context<any>) => {
   if (!isRootMutation) {
     return null;
   }
-  if (table.kind !== "class") {
+  if (!table || table.kind !== "class") {
     return null;
   }
   const sqlOp: SqlOp | null = isPgCreateMutationField
