@@ -444,6 +444,9 @@ describe("equivalent functions", () => {
             path: [...pathPrefix, "name"],
           },
         ]);
+        if (!data.data) {
+          throw new Error("Data.data not set");
+        }
         expect(snapshotSanitise(data.data.result.messages)).toEqual([
           {
             level: "info",
