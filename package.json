@@ -36,15 +36,15 @@
     "@typescript-eslint/parser": "^1.13.0",
     "@typescript-eslint/typescript-estree": "^1.13.0",
     "eslint": "^6.1.0",
-    "graphile-build": "^4.1.0-rc.2",
+    "graphile-build": "^4.4.4",
     "jest": "^23.6.0",
-    "postgraphile": "^4.4.1",
+    "postgraphile": "^4.4.3",
     "prettier": "^1.15.2",
     "ts-jest": "^23.10.5",
     "typescript": "^3.1.6"
   },
   "dependencies": {
-    "graphile-utils": "^4.1.0-rc.2"
+    "graphile-utils": "^4.4.4"
   },
   "prettier": {
     "trailingComma": "es5"
