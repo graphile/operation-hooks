@@ -5,7 +5,8 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "rm -vrf lib && tsc",
-    "test": "jest"
+    "test": "jest",
+    "prepack": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -48,7 +49,5 @@
   "prettier": {
     "trailingComma": "es5"
   },
-  "files": [
-    "lib"
-  ]
+  "files": ["lib"]
 }
