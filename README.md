@@ -114,7 +114,7 @@ There's a number of messages you might be interested in sending:
 - Notices:
   - [E] level: 'error', message: 'Email sending is not available at this time, please try again later'
   - [B] level: 'notice', message: 'Emails are currently subject to a 3 minute delay due to abuse circumvention; normal service should resume shortly'
-  - [A] level: 'notice', message: 'Email sent, remaining credits: 177', remaining_credits: 177
+  - [A] level: 'notice', message: 'Email sent, remaining credits: 177', required_credits: 7
   - [A] level: 'notice', message: 'You have 2 unsent emails in your outbox, please review them'
 
 You'll notice that every message has a `level` string and `message` string,
