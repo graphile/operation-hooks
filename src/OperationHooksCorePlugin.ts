@@ -45,13 +45,13 @@ async function applyHooks<T, TArgs>(
   let output: T | null = input;
   for (const hook of hooks) {
     output = await hook(output, args, context, resolveInfo);
-    if (output === undefined) {
+    if (output === undefined && input !== undefined) {
       throw new Error("Logic error: operation hook returned 'undefined'.");
     }
 
     // Nulls return early
-    if (output === null) {
-      return null;
+    if (output === null || output === undefined) {
+      return output;
     }
   }
   return output;
