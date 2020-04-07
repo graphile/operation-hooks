@@ -219,7 +219,7 @@ function argVariants(
       }
       const sqlDef = base
         .replace(args.length ? /___/ : /___,?/, args)
-        .replace(/%MSG%/, msg)
+        .replace(/%MSG%/g, msg)
         .replace(/%OP%/g, op);
       return {
         op,
