@@ -24,6 +24,65 @@ function sqlSearchPath(sql1: string, sql2?: string) {
   `;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let pgPool: Pool;
+
+beforeAll(async () => {
+  pgPool = new Pool({
+    connectionString: process.env.TEST_DATABASE_URL,
+  });
+  try {
+    await pgPool.query(
+      sqlSearchPath(
+        `
+  drop schema if exists operation_hooks cascade;
+  create schema operation_hooks;`,
+        `
+  create table users (
+    id serial primary key,
+     name text not null,
+     country_code text not null,
+     country_identification_number text not null,
+     unique (country_code, country_identification_number)
+  );
+
+  create function uppercase_name() returns trigger as $$
+    begin
+      NEW.name = upper(NEW.name);
+      return NEW;
+    end;
+  $$ language plpgsql;
+  create trigger _200_uppercase_name before insert or update on users for each row execute procedure uppercase_name();
+
+  insert into users (id, name, country_code, country_identification_number) values
+    (1, 'Uzr Vun', 'UK', '123456789');
+
+  select setval('users_id_seq', 1000);
+
+  create type mutation_message as (
+    level text,
+    message text,
+    path text[],
+    code text
+  );
+
+  `
+      )
+    );
+    // Synchronisation time?
+    await sleep(200);
+  } catch (e) {
+    console.error("Error when setting SQL search path");
+    console.dir(e);
+    throw e;
+  }
+});
+
+afterAll(() => {
+  pgPool.end();
+});
+
 const setupTeardownFunctions = (...sqlDefs: string[]) => {
   const before: string[] = [];
   const after: string[] = [];
@@ -74,60 +133,6 @@ function snapshotSanitise(o: any): any {
     return o;
   }
 }
-
-let pgPool: Pool;
-
-beforeAll(async () => {
-  pgPool = new Pool({
-    connectionString: process.env.TEST_DATABASE_URL,
-  });
-  try {
-    await pgPool.query(
-      sqlSearchPath(
-        `
-  drop schema if exists operation_hooks cascade;
-  create schema operation_hooks;`,
-        `
-  create table users (
-    id serial primary key,
-     name text not null,
-     country_code text not null,
-     country_identification_number text not null,
-     unique (country_code, country_identification_number)
-  );
-
-  create function uppercase_name() returns trigger as $$
-    begin
-      NEW.name = upper(NEW.name);
-      return NEW;
-    end;
-  $$ language plpgsql;
-  create trigger _200_uppercase_name before insert or update on users for each row execute procedure uppercase_name();
-
-  insert into users (id, name, country_code, country_identification_number) values
-    (1, 'Uzr Vun', 'UK', '123456789');
-
-  select setval('users_id_seq', 1000);
-
-  create type mutation_message as (
-    level text,
-    message text,
-    path text[],
-    code text
-  );
-
-  `
-      )
-    );
-  } catch (e) {
-    console.error("Error when setting SQL search path");
-    console.dir(e);
-  }
-});
-
-afterAll(() => {
-  pgPool.end();
-});
 
 async function withTransaction<T>(
   pool: Pool,
@@ -329,6 +334,7 @@ describe("equivalent functions", () => {
           console.error("ERROR DURING SETUP");
           console.error(sqlSetup);
           console.dir(e);
+          throw e;
         }
       });
       afterAll(() => pgPool.query(sqlTeardown));
