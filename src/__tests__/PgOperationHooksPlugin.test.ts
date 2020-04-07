@@ -14,6 +14,8 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
 }
 
+jest.setTimeout(10000);
+
 function sqlSearchPath(sql1: string, sql2?: string) {
   return `
   begin;
@@ -71,13 +73,13 @@ beforeAll(async () => {
       )
     );
     // Synchronisation time?
-    await sleep(200);
+    await sleep(1000);
   } catch (e) {
     console.error("Error when setting SQL search path");
     console.dir(e);
     throw e;
   }
-});
+}, 20000);
 
 afterAll(() => {
   pgPool.end();
