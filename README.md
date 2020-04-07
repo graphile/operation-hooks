@@ -409,7 +409,7 @@ const logCreateMutationsHookFromBuild = build => fieldContext => {
     ],
 
     // As `before`, except the callback is called after the operation and will
-    // be passed the result of the operation; you may returna derivative of the
+    // be passed the result of the operation; you may return a derivative of the
     // result.
     after: [],
 
