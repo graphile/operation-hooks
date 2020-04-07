@@ -1,5 +1,5 @@
 import { Plugin } from "graphile-build";
-import { graphql, __InputValue } from "graphql";
+import { graphql } from "graphql";
 import { EchoHiQuery, getSchema, makeHookPlugin } from "./common";
 
 const UndoHooksPlugin: Plugin = builder => {

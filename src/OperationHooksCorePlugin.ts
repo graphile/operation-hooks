@@ -5,6 +5,8 @@ import {
   GraphQLObjectType,
 } from "graphql";
 
+const FINALLY: any = Symbol("finally");
+
 export interface GraphQLResolveInfoWithMeta extends GraphQLResolveInfo {
   graphileMeta: {};
 }
@@ -51,7 +53,6 @@ async function applyHooks<T, TArgs>(
     try {
       output = await hook(output, args, context, resolveInfo);
 
-      // @ts-ignore This is perfectly valid, dear TypeScript.
       if (input === FINALLY && output !== FINALLY) {
         throw new Error(
           "Logic error: 'cleanup' hook must return the input value."
@@ -89,10 +90,10 @@ type GetOperationHooksCallbackForContextFn = (
 const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
   builder
 ) {
-  builder.hook("build", build => {
+  builder.hook("build", (build) => {
     const _operationHookGenerators: OperationHookGenerator[] = [];
     let locked = false;
-    const addOperationHook: AddOperationHookFn = fn => {
+    const addOperationHook: AddOperationHookFn = (fn) => {
       if (locked) {
         throw new Error(
           "Attempted to register operation hook after a hook was applied; this indicates an issue with the ordering of your plugins. Ensure that the OperationHooksPlugin and anything that depends on it come at the end of the plugins list."
@@ -101,19 +102,21 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
       _operationHookGenerators.push(fn);
     };
 
-    const _getOperationHookCallbacksForContext: GetOperationHooksCallbackForContextFn = context => {
+    const _getOperationHookCallbacksForContext: GetOperationHooksCallbackForContextFn = (
+      context
+    ) => {
       // Don't allow any more hooks to be registered now that one is being applied.
       locked = true;
 
       // Generate the hooks, and aggregate into before/after/error arrays
       const generatedHooks: OperationHook[] = _operationHookGenerators
-        .map(gen => gen(context))
-        .filter(_ => _);
+        .map((gen) => gen(context))
+        .filter((_) => _);
       const before: OperationHookEntry[] = [];
       const after: OperationHookEntry[] = [];
       const error: OperationHookEntry<Error>[] = [];
       const finallyHooks: OperationHookEntry<typeof FINALLY>[] = [];
-      generatedHooks.forEach(oneHook => {
+      generatedHooks.forEach((oneHook) => {
         if (oneHook.before) {
           before.push(...oneHook.before);
         }
@@ -146,10 +149,10 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
 
       // Return the relevant callbacks
       return {
-        before: before.map(hook => hook.callback),
-        after: after.map(hook => hook.callback),
-        error: error.map(hook => hook.callback),
-        finally: finallyHooks.map(hook => hook.callback),
+        before: before.map((hook) => hook.callback),
+        after: after.map((hook) => hook.callback),
+        error: error.map((hook) => hook.callback),
+        finally: finallyHooks.map((hook) => hook.callback),
       };
     };
     return build.extend(build, {
@@ -185,7 +188,7 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
       );
     }
 
-    const resolve: GraphQLFieldResolver<any, any> = async function(
+    const resolve: GraphQLFieldResolver<any, any> = async function (
       op,
       args,
       context,
@@ -255,13 +258,13 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
   });
 
   // Ensure all the resolvers have been wrapped (i.e. sanity check)
-  builder.hook("finalize", schema => {
+  builder.hook("finalize", (schema) => {
     const missingHooks: String[] = [];
     const types = [
       schema.getQueryType(),
       schema.getMutationType(),
       schema.getSubscriptionType(),
-    ].filter(_ => _);
+    ].filter((_) => _);
     types.forEach((type: GraphQLObjectType) => {
       const fields = type.getFields();
       for (const field of Object.values(fields)) {

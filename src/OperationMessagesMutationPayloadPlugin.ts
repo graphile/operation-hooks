@@ -36,6 +36,7 @@ const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessage
           (_object &&
             _object.__typename &&
             getTypeByName(_object.__typename)) ||
+          // eslint-disable-next-line @typescript-eslint/no-use-before-define
           OperationMessage,
         fields: {
           level: {
@@ -149,20 +150,22 @@ const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessage
     });
   });
 
-  // @ts-ignore TypeScript definition issue in graphile-build@4.1.0-rc.2
-  builder.hook("GraphQLSchema", (schema: GraphQLSchemaConfig, build) => {
-    const { getTypeByName } = build;
-    const OperationMessage = getTypeByName(
-      build.inflection.operationMessageName()
-    );
-    if (!schema.types) {
-      schema.types = [];
+  builder.hook(
+    "GraphQLSchema",
+    (schema: import("graphql").GraphQLSchemaConfig, build) => {
+      const { getTypeByName } = build;
+      const OperationMessage = getTypeByName(
+        build.inflection.operationMessageName()
+      );
+      if (!schema.types) {
+        schema.types = [];
+      }
+      if (schema.types.indexOf(OperationMessage) < 0) {
+        schema.types.push(OperationMessage);
+      }
+      return schema;
     }
-    if (schema.types.indexOf(OperationMessage) < 0) {
-      schema.types.push(OperationMessage);
-    }
-    return schema;
-  });
+  );
 };
 
 export default OperationMessagesMutationPayloadPlugin;

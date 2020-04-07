@@ -5,8 +5,8 @@ module.exports = {
   },
   extends: [
     "eslint:recommended",
-    "plugin:@typescript-eslint/eslint-recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
     "prettier",
     "prettier/@typescript-eslint",
   ],
@@ -33,7 +33,7 @@ module.exports = {
     "no-confusing-arrow": 0,
     "no-else-return": 0,
     "no-underscore-dangle": 0,
-    "no-unused-vars": [
+    "@typescript-eslint/no-unused-vars": [
       2,
       {
         argsIgnorePattern: "^_",

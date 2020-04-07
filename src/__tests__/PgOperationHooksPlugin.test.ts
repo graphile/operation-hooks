@@ -14,6 +14,15 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
 }
 
+function sqlSearchPath(sql: string) {
+  return `
+  begin;
+  set local search_path to operation_hooks;
+  ${sql};
+  commit;
+  `;
+}
+
 const setupTeardownFunctions = (...sqlDefs: string[]) => {
   const before: string[] = [];
   const after: string[] = [];
@@ -66,14 +75,6 @@ function snapshotSanitise(o: any): any {
 }
 
 let pgPool: Pool;
-function sqlSearchPath(sql: string) {
-  return `
-  begin;
-  set local search_path to operation_hooks;
-  ${sql};
-  commit;
-  `;
-}
 
 beforeAll(async () => {
   pgPool = new Pool({
@@ -145,7 +146,6 @@ function postgraphql(
   operationName?: string
 ) {
   return withPostGraphileContext(
-    // @ts-ignore See postgraphile#931
     {
       pgPool,
     },

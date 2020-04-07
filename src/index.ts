@@ -30,7 +30,6 @@ const plugin: PostGraphilePlugin = {
     return addFlag;
   },
 
-  // @ts-ignore See postgraphile#932
   ["cli:library:options"](options, { config, cliOptions }) {
     // Take the CLI options and add them as PostGraphile options.
     const { operationMessages = false, operationMessagesPreflight = false } = {
