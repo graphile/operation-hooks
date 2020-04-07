@@ -378,11 +378,11 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
       if (!callAfterSQLFunction && !callBeforeSQLFunction) {
         return null;
       }
-      if (callBeforeSQLFunction) {
-        hook.before!.push({ priority: 500, callback: callBeforeSQLFunction });
+      if (callBeforeSQLFunction && hook.before) {
+        hook.before.push({ priority: 500, callback: callBeforeSQLFunction });
       }
-      if (callAfterSQLFunction) {
-        hook.after!.push({ priority: 500, callback: callAfterSQLFunction });
+      if (callAfterSQLFunction && hook.after) {
+        hook.after.push({ priority: 500, callback: callAfterSQLFunction });
       }
       return hook;
     };
