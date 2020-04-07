@@ -14,11 +14,12 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
 }
 
-function sqlSearchPath(sql: string) {
+function sqlSearchPath(sql1: string, sql2?: string) {
   return `
   begin;
+  ${sql2 != null ? sql1 : ""}
   set local search_path to operation_hooks;
-  ${sql};
+  ${sql2 != null ? sql2 : sql1}
   commit;
   `;
 }
@@ -82,10 +83,11 @@ beforeAll(async () => {
   });
   try {
     await pgPool.query(
-      sqlSearchPath(`
+      sqlSearchPath(
+        `
   drop schema if exists operation_hooks cascade;
-  create schema operation_hooks;
-
+  create schema operation_hooks;`,
+        `
   create table users (
     id serial primary key,
      name text not null,
@@ -114,7 +116,8 @@ beforeAll(async () => {
     code text
   );
 
-  `)
+  `
+      )
     );
   } catch (e) {
     console.error("Error when setting SQL search path");
