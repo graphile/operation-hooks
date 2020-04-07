@@ -7,7 +7,7 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
   builder
 ) {
   builder.hook("init", (_, build) => {
-    const hookGenerator: OperationHookCallback = fieldContext => {
+    const hookGenerator: OperationHookCallback = (fieldContext) => {
       if (!fieldContext.scope.isRootMutation) {
         // We absolutely cannot support isRootQuery because root query resolvers
         // run in parallel, all using the same PG client, so we wouldn't know

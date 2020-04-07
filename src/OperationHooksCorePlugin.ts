@@ -27,10 +27,10 @@ export interface OperationHookEntry<T = any> {
 }
 
 export interface OperationHook {
-  before?: Array<OperationHookEntry>;
-  after?: Array<OperationHookEntry>;
-  error?: Array<OperationHookEntry<Error>>;
-  finally?: Array<OperationHookEntry<typeof FINALLY>>;
+  before?: OperationHookEntry[];
+  after?: OperationHookEntry[];
+  error?: OperationHookEntry<Error>[];
+  finally?: OperationHookEntry<typeof FINALLY>[];
 }
 
 export type OperationHookGenerator = (
