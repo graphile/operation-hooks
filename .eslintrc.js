@@ -48,4 +48,13 @@ module.exports = {
     // TODO: re-enable this
     "@typescript-eslint/explicit-function-return-type": 0,
   },
+  overrides: [
+    {
+      files: ["**/__tests__/**/*.ts"],
+      rules: {
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+      },
+    },
+  ],
 };
