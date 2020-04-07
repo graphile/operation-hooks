@@ -10,7 +10,7 @@ module.exports = {
     "prettier",
     "prettier/@typescript-eslint",
   ],
-  plugins: ["jest", "prettier", "@typescript-eslint"],
+  plugins: ["jest", "@typescript-eslint"],
   env: {
     jest: true,
     node: true,
@@ -20,12 +20,6 @@ module.exports = {
     PACKAGE_VERSION: false,
   },
   rules: {
-    "prettier/prettier": [
-      "error",
-      {
-        trailingComma: "es5",
-      },
-    ],
     "comma-dangle": [
       2,
       {
@@ -50,7 +44,6 @@ module.exports = {
     camelcase: 0,
     "jest/no-focused-tests": 2,
     "jest/no-identical-title": 2,
-    "flowtype/no-weak-types": [2, { any: false }],
 
     // TODO: re-enable this
     "@typescript-eslint/explicit-function-return-type": 0,

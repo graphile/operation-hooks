@@ -6,6 +6,10 @@
   "scripts": {
     "build": "rm -vrf lib && tsc",
     "test": "jest",
+    "lint": "yarn prettier --check && yarn eslint",
+    "lint:fix": "yarn eslint --fix; yarn prettier --write",
+    "eslint": "eslint --ext .js,.jsx,.ts,.tsx,.graphql .",
+    "prettier": "prettier --ignore-path .eslintignore '**/*.{js,jsx,ts,tsx,graphql,md,json}'",
     "prepack": "npm run build"
   },
   "repository": {
@@ -44,6 +48,8 @@
     "typescript": "^3.8.3"
   },
   "dependencies": {
+    "eslint-config-prettier": "^6.10.1",
+    "eslint-plugin-jest": "^23.8.2",
     "graphile-utils": "^4.4.4"
   },
   "prettier": {
