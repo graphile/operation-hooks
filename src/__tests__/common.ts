@@ -5,7 +5,7 @@ import OperationHooksPlugin, {
   OperationHookGenerator,
 } from "../OperationHooksPlugin";
 
-export const EchoPlugin = makeExtendSchemaPlugin(build => ({
+export const EchoPlugin = makeExtendSchemaPlugin((build) => ({
   typeDefs: gql`
     extend type Query {
       echo(message: String!): String @scope(isEchoQuery: true)
@@ -74,9 +74,9 @@ export const makeHookPlugin = (
   callback: OperationHookCallback,
   when: "before" | "after" | "error" = "before",
   priority = 500
-): Plugin => builder => {
+): Plugin => (builder) => {
   builder.hook("init", (_, build) => {
-    const hookForContext: OperationHookGenerator = _fieldContext => ({
+    const hookForContext: OperationHookGenerator = (_fieldContext) => ({
       [when]: [
         {
           priority,

@@ -259,7 +259,7 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
 
   // Ensure all the resolvers have been wrapped (i.e. sanity check)
   builder.hook("finalize", (schema) => {
-    const missingHooks: String[] = [];
+    const missingHooks: string[] = [];
     const types = [
       schema.getQueryType(),
       schema.getMutationType(),

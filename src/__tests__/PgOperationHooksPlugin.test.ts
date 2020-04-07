@@ -28,7 +28,7 @@ const setupTeardownFunctions = (...sqlDefs: string[]) => {
   const after: string[] = [];
   const funcArgses: string[] = [];
   const funcReturnses: string[] = [];
-  sqlDefs.forEach(sqlDef => {
+  sqlDefs.forEach((sqlDef) => {
     const matches = sqlDef.match(
       /create function ([a-z0-9_]+)\(([^)]*)\) (?:returns ([\s\S]*) )?as \$\$/
     );
@@ -155,7 +155,7 @@ function postgraphql(
       pgPool,
     },
     (postgraphileContext: {}) =>
-      withTransaction(pgPool, pgClient =>
+      withTransaction(pgPool, (pgClient) =>
         graphql(
           schema,
           query,
@@ -184,7 +184,7 @@ const getPostGraphileSchema = (plugins: Plugin[] = []) =>
 function argVariants(
   base: string,
   type: string,
-  rawPrefix: string = ""
+  rawPrefix = ""
 ): {
   op: "insert" | "update" | "delete";
   sqlDefs: string[];
@@ -208,7 +208,7 @@ function argVariants(
     ].map(({ args }) => {
       const argCount =
         args.trim().length === 0 ? 0 : args.replace(/[^,]/g, "").length + 1;
-      let msg: string = "";
+      let msg = "";
       if (argCount === 0) {
         msg = ` || ' (no args)'`;
       } else {

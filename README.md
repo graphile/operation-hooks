@@ -57,9 +57,7 @@ const postGraphileMiddleware = postgraphile(DATABASE_URL, SCHEMA_NAME, {
 });
 
 // This example uses `http` but you can use Express, Koa, etc.
-require("http")
-  .createServer(postGraphileMiddleware)
-  .listen(5000);
+require("http").createServer(postGraphileMiddleware).listen(5000);
 
 /*
 const app = express();
@@ -341,7 +339,7 @@ repository](https://github.com/graphile/operation-hooks-example).
 ```js
 // This plugin logs all attempts at `create` mutations before they're attempted.
 
-const logCreateMutationsHookFromBuild = build => fieldContext => {
+const logCreateMutationsHookFromBuild = (build) => (fieldContext) => {
   // This function is called for every top-level field registered with
   // Graphile Engine. `fieldContext` is a Context object describing
   // the field that's being hooked; it could be for a query (`isRootQuery`),
