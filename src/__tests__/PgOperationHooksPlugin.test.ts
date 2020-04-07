@@ -314,7 +314,15 @@ describe("equivalent functions", () => {
       .trim()}' returning '${
       funcReturns ? funcReturns.replace(/\s+/g, " ").trim() : "record"
     }'`, () => {
-      beforeAll(() => pgPool.query(sqlSetup));
+      beforeAll(async () => {
+        try {
+          await pgPool.query(sqlSetup);
+        } catch (e) {
+          console.error("ERROR DURING SETUP");
+          console.error(sqlSetup);
+          console.dir(e);
+        }
+      });
       afterAll(() => pgPool.query(sqlTeardown));
 
       test("creates messages on meta", async () => {
