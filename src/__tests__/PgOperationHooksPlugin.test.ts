@@ -80,8 +80,9 @@ beforeAll(async () => {
   pgPool = new Pool({
     connectionString: process.env.TEST_DATABASE_URL,
   });
-  await pgPool.query(
-    sqlSearchPath(`
+  try {
+    await pgPool.query(
+      sqlSearchPath(`
   drop schema if exists operation_hooks cascade;
   create schema operation_hooks;
 
@@ -114,7 +115,11 @@ beforeAll(async () => {
   );
 
   `)
-  );
+    );
+  } catch (e) {
+    console.error("Error when setting SQL search path");
+    console.dir(e);
+  }
 });
 
 afterAll(() => {
