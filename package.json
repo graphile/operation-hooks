@@ -40,6 +40,8 @@
     "@typescript-eslint/parser": "^2.27.0",
     "@typescript-eslint/typescript-estree": "^2.27.0",
     "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.10.1",
+    "eslint-plugin-jest": "^23.8.2",
     "graphile-build": "^4.5.0",
     "jest": "^25.2.7",
     "postgraphile": "^4.4.3",
@@ -48,8 +50,6 @@
     "typescript": "^3.8.3"
   },
   "dependencies": {
-    "eslint-config-prettier": "^6.10.1",
-    "eslint-plugin-jest": "^23.8.2",
     "graphile-utils": "^4.4.4"
   },
   "prettier": {
