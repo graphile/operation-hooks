@@ -18,6 +18,7 @@ test("creates messages on meta", async () => {
   ]);
   expect(resolveInfos.length).toEqual(0);
   const data = await graphql(schema, EchoHiMutation);
+  expect(data.errors).toBeFalsy();
   expect(resolveInfos.length).toEqual(1);
   expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
 Array [
