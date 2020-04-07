@@ -37,8 +37,6 @@ export type OperationHookGenerator = (
   fieldContext: Context<any>
 ) => OperationHook;
 
-const FINALLY = Symbol("finally");
-
 // Hooks are applied one after the other, in an asynchronous chain.
 async function applyHooks<T, TArgs>(
   hooks: OperationHookCallback[],
