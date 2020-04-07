@@ -14,12 +14,83 @@ if (!process.env.TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL envvar must be set");
 }
 
+jest.setTimeout(10000);
+
+function sqlSearchPath(sql1: string, sql2?: string) {
+  return `
+  begin;
+  ${sql2 != null ? sql1 : ""}
+  set local search_path to operation_hooks;
+  ${sql2 != null ? sql2 : sql1}
+  commit;
+  `;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+let pgPool: Pool;
+
+beforeAll(async () => {
+  pgPool = new Pool({
+    connectionString: process.env.TEST_DATABASE_URL,
+  });
+  try {
+    await pgPool.query(
+      sqlSearchPath(
+        `
+  drop schema if exists operation_hooks cascade;
+  create schema operation_hooks;`,
+        `
+  create table users (
+    id serial primary key,
+     name text not null,
+     country_code text not null,
+     country_identification_number text not null,
+     unique (country_code, country_identification_number)
+  );
+
+  create function uppercase_name() returns trigger as $$
+    begin
+      NEW.name = upper(NEW.name);
+      return NEW;
+    end;
+  $$ language plpgsql;
+  create trigger _200_uppercase_name before insert or update on users for each row execute procedure uppercase_name();
+
+  insert into users (id, name, country_code, country_identification_number) values
+    (1, 'Uzr Vun', 'UK', '123456789');
+
+  select setval('users_id_seq', 1000);
+
+  create type mutation_message as (
+    level text,
+    message text,
+    path text[],
+    code text
+  );
+
+  `
+      )
+    );
+    // Synchronisation time?
+    await sleep(1000);
+  } catch (e) {
+    console.error("Error when setting SQL search path");
+    console.dir(e);
+    throw e;
+  }
+}, 20000);
+
+afterAll(() => {
+  pgPool.end();
+});
+
 const setupTeardownFunctions = (...sqlDefs: string[]) => {
   const before: string[] = [];
   const after: string[] = [];
   const funcArgses: string[] = [];
   const funcReturnses: string[] = [];
-  sqlDefs.forEach(sqlDef => {
+  sqlDefs.forEach((sqlDef) => {
     const matches = sqlDef.match(
       /create function ([a-z0-9_]+)\(([^)]*)\) (?:returns ([\s\S]*) )?as \$\$/
     );
@@ -65,61 +136,6 @@ function snapshotSanitise(o: any): any {
   }
 }
 
-let pgPool: Pool;
-function sqlSearchPath(sql: string) {
-  return `
-  begin;
-  set local search_path to operation_hooks;
-  ${sql};
-  commit;
-  `;
-}
-
-beforeAll(async () => {
-  pgPool = new Pool({
-    connectionString: process.env.TEST_DATABASE_URL,
-  });
-  await pgPool.query(
-    sqlSearchPath(`
-  drop schema if exists operation_hooks cascade;
-  create schema operation_hooks;
-
-  create table users (
-    id serial primary key,
-     name text not null,
-     country_code text not null,
-     country_identification_number text not null,
-     unique (country_code, country_identification_number)
-  );
-
-  create function uppercase_name() returns trigger as $$
-    begin
-      NEW.name = upper(NEW.name);
-      return NEW;
-    end;
-  $$ language plpgsql;
-  create trigger _200_uppercase_name before insert or update on users for each row execute procedure uppercase_name();
-
-  insert into users (id, name, country_code, country_identification_number) values
-    (1, 'Uzr Vun', 'UK', '123456789');
-
-  select setval('users_id_seq', 1000);
-
-  create type mutation_message as (
-    level text,
-    message text,
-    path text[],
-    code text
-  );
-
-  `)
-  );
-});
-
-afterAll(() => {
-  pgPool.end();
-});
-
 async function withTransaction<T>(
   pool: Pool,
   cb: (client: PoolClient) => Promise<T>
@@ -145,12 +161,11 @@ function postgraphql(
   operationName?: string
 ) {
   return withPostGraphileContext(
-    // @ts-ignore See postgraphile#931
     {
       pgPool,
     },
     (postgraphileContext: {}) =>
-      withTransaction(pgPool, pgClient =>
+      withTransaction(pgPool, (pgClient) =>
         graphql(
           schema,
           query,
@@ -179,7 +194,7 @@ const getPostGraphileSchema = (plugins: Plugin[] = []) =>
 function argVariants(
   base: string,
   type: string,
-  rawPrefix: string = ""
+  rawPrefix = ""
 ): {
   op: "insert" | "update" | "delete";
   sqlDefs: string[];
@@ -203,7 +218,7 @@ function argVariants(
     ].map(({ args }) => {
       const argCount =
         args.trim().length === 0 ? 0 : args.replace(/[^,]/g, "").length + 1;
-      let msg: string = "";
+      let msg = "";
       if (argCount === 0) {
         msg = ` || ' (no args)'`;
       } else {
@@ -219,7 +234,7 @@ function argVariants(
       }
       const sqlDef = base
         .replace(args.length ? /___/ : /___,?/, args)
-        .replace(/%MSG%/, msg)
+        .replace(/%MSG%/g, msg)
         .replace(/%OP%/g, op);
       return {
         op,
@@ -271,10 +286,10 @@ create function users_%OP%_%WHEN%(___) returns table(
   code text
 ) as $$
   select 
-    'info',
-    '%WHEN% user %OP% mutation' %MSG%,
-    ARRAY['name'],
-    'INFO1';
+    'info'::text,
+    ('%WHEN% user %OP% mutation' %MSG%)::text,
+    ARRAY['name']::text[],
+    'INFO1'::text;
 $$ language sql volatile set search_path from current;
 `,
     "users"
@@ -289,10 +304,10 @@ create function users_%OP%_%WHEN%(
   out code text
 ) as $$
   select 
-    'info',
-    '%WHEN% user %OP% mutation' %MSG%,
-    ARRAY['name'],
-    'INFO1';
+    'info'::text,
+    ('%WHEN% user %OP% mutation' %MSG%)::text,
+    ARRAY['name']::text[],
+    'INFO1'::text;
 $$ language sql volatile set search_path from current;
 `,
     "users",
@@ -314,7 +329,16 @@ describe("equivalent functions", () => {
       .trim()}' returning '${
       funcReturns ? funcReturns.replace(/\s+/g, " ").trim() : "record"
     }'`, () => {
-      beforeAll(() => pgPool.query(sqlSetup));
+      beforeAll(async () => {
+        try {
+          await pgPool.query(sqlSetup);
+        } catch (e) {
+          console.error("ERROR DURING SETUP");
+          console.error(sqlSetup);
+          console.dir(e);
+          throw e;
+        }
+      });
       afterAll(() => pgPool.query(sqlTeardown));
 
       test("creates messages on meta", async () => {

@@ -3,7 +3,7 @@ import { getSchema, makeHookPlugin, EchoHiMutation } from "./common";
 import { GraphQLResolveInfoWithMessages } from "../OperationMessagesPlugin";
 
 test("creates messages on meta", async () => {
-  let resolveInfos: GraphQLResolveInfoWithMessages[] = [];
+  const resolveInfos: GraphQLResolveInfoWithMessages[] = [];
   const schema = await getSchema([
     makeHookPlugin(
       (input, _args, _context, resolveInfo: GraphQLResolveInfoWithMessages) => {
@@ -18,6 +18,7 @@ test("creates messages on meta", async () => {
   ]);
   expect(resolveInfos.length).toEqual(0);
   const data = await graphql(schema, EchoHiMutation);
+  expect(data.errors).toBeFalsy();
   expect(resolveInfos.length).toEqual(1);
   expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
 Array [

@@ -1,9 +1,9 @@
 import { Plugin } from "graphile-build";
-import { graphql, __InputValue } from "graphql";
+import { graphql } from "graphql";
 import { EchoHiQuery, getSchema, makeHookPlugin } from "./common";
 
-const UndoHooksPlugin: Plugin = builder => {
-  builder.hook("GraphQLObjectType:fields:field", field => {
+const UndoHooksPlugin: Plugin = (builder) => {
+  builder.hook("GraphQLObjectType:fields:field", (field) => {
     if (field.resolve) {
       delete field.resolve["__asyncHooks"];
     }
@@ -27,7 +27,7 @@ test("checks all resolvers are wrapped", async () => {
 test("calls hooks the correct number of times", async () => {
   let called = 0;
   const schema = await getSchema([
-    makeHookPlugin(input => {
+    makeHookPlugin((input) => {
       called++;
       return input;
     }),
@@ -67,7 +67,7 @@ Object {
 
 test("allows exiting early without error", async () => {
   const schema = await getSchema([
-    makeHookPlugin(input => {
+    makeHookPlugin((input) => {
       expect(typeof input).toEqual("symbol");
       return null;
     }),
@@ -85,7 +85,7 @@ Object {
 
 test("allows replacing/augmenting output", async () => {
   const schema = await getSchema([
-    makeHookPlugin(out => {
+    makeHookPlugin((out) => {
       return out + "(AFTER)";
     }, "after"),
   ]);
@@ -101,7 +101,7 @@ Object {
 });
 
 test("throws error if hook is registered after hooks have been called", async () => {
-  const BadlyBehavedPlugin: Plugin = builder =>
+  const BadlyBehavedPlugin: Plugin = (builder) =>
     builder.hook("GraphQLObjectType:fields:field", (field, build) => {
       build.addOperationHook(() => ({}));
       return field;
@@ -109,7 +109,7 @@ test("throws error if hook is registered after hooks have been called", async ()
   let err;
   try {
     await getSchema([
-      makeHookPlugin(out => {
+      makeHookPlugin((out) => {
         return out + "(AFTER)";
       }, "after"),
       BadlyBehavedPlugin,

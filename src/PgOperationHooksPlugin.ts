@@ -25,7 +25,7 @@ const get = (obj: any, path: string[]) => {
 interface FunctionSpec {
   isArray: boolean;
   path: string[];
-  makeArgs: ((args: any, input: any) => SQL);
+  makeArgs: (args: any, input: any) => SQL;
 }
 
 function getFunctionSpec(
@@ -91,9 +91,7 @@ function getFunctionSpec(
     inputArgTypes[0].id !== JSONB_TYPE_ID
   ) {
     throw new Error(
-      `Function ${proc.namespaceName}.${
-        proc.name
-      }(...)'s first argument should be either JSON or JSONB`
+      `Function ${proc.namespaceName}.${proc.name}(...)'s first argument should be either JSON or JSONB`
     );
   }
 
@@ -137,9 +135,7 @@ function getFunctionSpec(
         if ((sqlOp === "insert" || sqlOp === "update") && when === "after") {
           if (!primaryKeyConstraint) {
             throw new Error(
-              `Table has no primary key, cannot pass row to ${
-                proc.namespaceName
-              }.${proc.name}`
+              `Table has no primary key, cannot pass row to ${proc.namespaceName}.${proc.name}`
             );
           }
           const sqlTuple = sql.identifier(Symbol());
@@ -367,7 +363,7 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
       // Clearly we're not running in PostGraphile, abort.
       return _;
     }
-    const hookGenerator: OperationHookCallback = fieldContext => {
+    const hookGenerator: OperationHookCallback = (fieldContext) => {
       const hook: OperationHook = { before: [], after: [] };
       const callBeforeSQLFunction = getCallSQLFunction(
         build,
@@ -382,11 +378,11 @@ const PgOperationHooksPlugin: Plugin = function PgOperationHooksPlugin(
       if (!callAfterSQLFunction && !callBeforeSQLFunction) {
         return null;
       }
-      if (callBeforeSQLFunction) {
-        hook.before!.push({ priority: 500, callback: callBeforeSQLFunction });
+      if (callBeforeSQLFunction && hook.before) {
+        hook.before.push({ priority: 500, callback: callBeforeSQLFunction });
       }
-      if (callAfterSQLFunction) {
-        hook.after!.push({ priority: 500, callback: callAfterSQLFunction });
+      if (callAfterSQLFunction && hook.after) {
+        hook.after.push({ priority: 500, callback: callAfterSQLFunction });
       }
       return hook;
     };
