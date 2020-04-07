@@ -43,26 +43,30 @@ async function applyHooks<T, TArgs>(
   input: T,
   args: TArgs,
   context: any,
-  resolveInfo: GraphQLResolveInfoWithMeta
+  resolveInfo: GraphQLResolveInfoWithMeta,
+  skipErrors = false
 ): Promise<T | null> {
   let output: T | null = input;
   for (const hook of hooks) {
-    output = await hook(output, args, context, resolveInfo);
+    try {
+      output = await hook(output, args, context, resolveInfo);
 
-    // @ts-ignore This is perfectly valid, dear TypeScript.
-    if (input === FINALLY && output !== FINALLY) {
-      throw new Error(
-        "Logic error: 'cleanup' hook must return the input value."
-      );
-    }
+      // @ts-ignore This is perfectly valid, dear TypeScript.
+      if (input === FINALLY && output !== FINALLY) {
+        throw new Error(
+          "Logic error: 'cleanup' hook must return the input value."
+        );
+      }
 
-    if (output === undefined && input !== undefined) {
-      throw new Error("Logic error: operation hook returned 'undefined'.");
-    }
-
-    // Nulls return early
-    if (output === null || output === undefined) {
-      return output;
+      if (output === undefined && input !== undefined) {
+        throw new Error("Logic error: operation hook returned 'undefined'.");
+      }
+    } catch (e) {
+      if (!skipErrors) {
+        throw e;
+      } else {
+        console.error(e);
+      }
     }
   }
   return output;
@@ -236,7 +240,8 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
           FINALLY,
           args,
           context,
-          resolveInfoWithMeta
+          resolveInfoWithMeta,
+          true
         );
       }
     };
