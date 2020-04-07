@@ -254,26 +254,52 @@ const equivalentFunctions = [
   ...argVariants(
     `\
 create function users_%OP%_%WHEN%(___) returns setof mutation_message as $$
-  select row(
+begin
+  raise debug '%', json_build_object(
+    'f', 'NOTICE',
+    'l', 'info',
+    'm', '' %MSG%,
+    'w', '%WHEN%',
+    'o', '%OP%',
+    'c', 'INFO1',
+    'p', array_to_json(ARRAY['name'])
+  )::text using errcode = 'GOPHK';
+
+  return next row(
     'info',
     '%WHEN% user %OP% mutation' %MSG%,
     ARRAY['name'],
     'INFO1'
   )::mutation_message;
-$$ language sql volatile set search_path from current;
+
+  return;
+end;
+$$ language plpgsql volatile set search_path from current;
 `,
     "users"
   ),
   ...argVariants(
     `\
 create function users_%OP%_%WHEN%(___) returns mutation_message[] as $$
-  select ARRAY[row(
+begin
+  raise debug '%', json_build_object(
+    'f', 'NOTICE',
+    'l', 'info',
+    'm', '' %MSG%,
+    'w', '%WHEN%',
+    'o', '%OP%',
+    'c', 'INFO1',
+    'p', array_to_json(ARRAY['name'])
+  )::text using errcode = 'GOPHK';
+
+  return ARRAY[row(
     'info',
     '%WHEN% user %OP% mutation' %MSG%,
     ARRAY['name'],
     'INFO1'
-  )::mutation_message]
-$$ language sql volatile set search_path from current;
+  )::mutation_message];
+end;
+$$ language plpgsql volatile set search_path from current;
 `,
     "users"
   ),
@@ -285,12 +311,26 @@ create function users_%OP%_%WHEN%(___) returns table(
   path text[],
   code text
 ) as $$
-  select 
-    'info'::text,
-    ('%WHEN% user %OP% mutation' %MSG%)::text,
-    ARRAY['name']::text[],
-    'INFO1'::text;
-$$ language sql volatile set search_path from current;
+begin
+  raise debug '%', json_build_object(
+    'f', 'NOTICE',
+    'l', 'info',
+    'm', '' %MSG%,
+    'w', '%WHEN%',
+    'o', '%OP%',
+    'c', 'INFO1',
+    'p', array_to_json(ARRAY['name'])
+  )::text using errcode = 'GOPHK';
+
+  level = 'info';
+  message = '%WHEN% user %OP% mutation' %MSG%;
+  path = ARRAY['name'];
+  code = 'INFO1';
+  return next;
+
+  return;
+end;
+$$ language plpgsql volatile set search_path from current;
 `,
     "users"
   ),
@@ -303,12 +343,24 @@ create function users_%OP%_%WHEN%(
   out path text[],
   out code text
 ) as $$
-  select 
-    'info'::text,
-    ('%WHEN% user %OP% mutation' %MSG%)::text,
-    ARRAY['name']::text[],
-    'INFO1'::text;
-$$ language sql volatile set search_path from current;
+begin
+  raise debug '%', json_build_object(
+    'f', 'NOTICE',
+    'l', 'info',
+    'm', '' %MSG%,
+    'w', '%WHEN%',
+    'o', '%OP%',
+    'c', 'INFO1',
+    'p', array_to_json(ARRAY['name'])
+  )::text using errcode = 'GOPHK';
+
+  level = 'info';
+  message = '%WHEN% user %OP% mutation' %MSG%;
+  path = ARRAY['name'];
+  code = 'INFO1';
+
+end;
+$$ language plpgsql volatile set search_path from current;
 `,
     "users",
     "in"
