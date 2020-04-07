@@ -25,7 +25,7 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
           json = JSON.parse(msg.detail);
         } catch (e) {
           console.dir(msg);
-          console.error("Failed to parse above GOPHK NOTICE from PostgreSQL");
+          console.error("Failed to parse above OPMSG NOTICE from PostgreSQL");
           console.error(e);
         }
         resolveInfo.graphileMeta.messages.push({

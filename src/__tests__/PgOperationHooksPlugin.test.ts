@@ -257,7 +257,7 @@ create function users_%OP%_%WHEN%(___) returns setof mutation_message as $$
 begin
   raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
   using
-    errcode = 'GOPHK',
+    errcode = 'OPMSG',
     detail = json_build_object(
       'level', 'info',
       'when', '%WHEN%',
@@ -285,7 +285,7 @@ create function users_%OP%_%WHEN%(___) returns mutation_message[] as $$
 begin
   raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
   using
-    errcode = 'GOPHK',
+    errcode = 'OPMSG',
     detail = json_build_object(
       'level', 'info',
       'when', '%WHEN%',
@@ -316,7 +316,7 @@ create function users_%OP%_%WHEN%(___) returns table(
 begin
   raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
   using
-    errcode = 'GOPHK',
+    errcode = 'OPMSG',
     detail = json_build_object(
       'level', 'info',
       'when', '%WHEN%',
@@ -349,7 +349,7 @@ create function users_%OP%_%WHEN%(
 begin
   raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
   using
-    errcode = 'GOPHK',
+    errcode = 'OPMSG',
     detail = json_build_object(
       'level', 'info',
       'when', '%WHEN%',
