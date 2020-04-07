@@ -276,10 +276,10 @@ create function users_%OP%_%WHEN%(___) returns table(
   code text
 ) as $$
   select 
-    'info',
-    '%WHEN% user %OP% mutation' %MSG%,
-    ARRAY['name'],
-    'INFO1';
+    'info'::text,
+    ('%WHEN% user %OP% mutation' %MSG%)::text,
+    ARRAY['name']::text[],
+    'INFO1'::text;
 $$ language sql volatile set search_path from current;
 `,
     "users"
@@ -294,10 +294,10 @@ create function users_%OP%_%WHEN%(
   out code text
 ) as $$
   select 
-    'info',
-    '%WHEN% user %OP% mutation' %MSG%,
-    ARRAY['name'],
-    'INFO1';
+    'info'::text,
+    ('%WHEN% user %OP% mutation' %MSG%)::text,
+    ARRAY['name']::text[],
+    'INFO1'::text;
 $$ language sql volatile set search_path from current;
 `,
     "users",
