@@ -255,15 +255,16 @@ const equivalentFunctions = [
     `\
 create function users_%OP%_%WHEN%(___) returns setof mutation_message as $$
 begin
-  raise debug '%', json_build_object(
-    'f', 'NOTICE',
-    'l', 'info',
-    'm', '' %MSG%,
-    'w', '%WHEN%',
-    'o', '%OP%',
-    'c', 'INFO1',
-    'p', array_to_json(ARRAY['name'])
-  )::text using errcode = 'GOPHK';
+  raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
+  using
+    errcode = 'GOPHK',
+    detail = json_build_object(
+      'level', 'info',
+      'when', '%WHEN%',
+      'op', '%OP%',
+      'code', 'INFO1',
+      'path', array_to_json(ARRAY['noticePath'])
+    );
 
   return next row(
     'info',
@@ -282,15 +283,16 @@ $$ language plpgsql volatile set search_path from current;
     `\
 create function users_%OP%_%WHEN%(___) returns mutation_message[] as $$
 begin
-  raise debug '%', json_build_object(
-    'f', 'NOTICE',
-    'l', 'info',
-    'm', '' %MSG%,
-    'w', '%WHEN%',
-    'o', '%OP%',
-    'c', 'INFO1',
-    'p', array_to_json(ARRAY['name'])
-  )::text using errcode = 'GOPHK';
+  raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
+  using
+    errcode = 'GOPHK',
+    detail = json_build_object(
+      'level', 'info',
+      'when', '%WHEN%',
+      'op', '%OP%',
+      'code', 'INFO1',
+      'path', array_to_json(ARRAY['noticePath'])
+    );
 
   return ARRAY[row(
     'info',
@@ -312,15 +314,16 @@ create function users_%OP%_%WHEN%(___) returns table(
   code text
 ) as $$
 begin
-  raise debug '%', json_build_object(
-    'f', 'NOTICE',
-    'l', 'info',
-    'm', '' %MSG%,
-    'w', '%WHEN%',
-    'o', '%OP%',
-    'c', 'INFO1',
-    'p', array_to_json(ARRAY['name'])
-  )::text using errcode = 'GOPHK';
+  raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
+  using
+    errcode = 'GOPHK',
+    detail = json_build_object(
+      'level', 'info',
+      'when', '%WHEN%',
+      'op', '%OP%',
+      'code', 'INFO1',
+      'path', array_to_json(ARRAY['noticePath'])
+    );
 
   level = 'info';
   message = '%WHEN% user %OP% mutation' %MSG%;
@@ -344,15 +347,16 @@ create function users_%OP%_%WHEN%(
   out code text
 ) as $$
 begin
-  raise debug '%', json_build_object(
-    'f', 'NOTICE',
-    'l', 'info',
-    'm', '' %MSG%,
-    'w', '%WHEN%',
-    'o', '%OP%',
-    'c', 'INFO1',
-    'p', array_to_json(ARRAY['name'])
-  )::text using errcode = 'GOPHK';
+  raise notice '%', 'NOTICE %WHEN% user %OP% mutation' %MSG%
+  using
+    errcode = 'GOPHK',
+    detail = json_build_object(
+      'level', 'info',
+      'when', '%WHEN%',
+      'op', '%OP%',
+      'code', 'INFO1',
+      'path', array_to_json(ARRAY['noticePath'])
+    );
 
   level = 'info';
   message = '%WHEN% user %OP% mutation' %MSG%;
@@ -462,11 +466,16 @@ describe("equivalent functions", () => {
         );
         expect(data.errors).toBeFalsy();
         expect(resolveInfos.length).toEqual(1);
-        expect(resolveInfos[0].graphileMeta.messages.length).toEqual(2);
         expect(resolveInfos[0].graphileMeta.messages[0].message).toContain(
           `before user ${op} mutation`
         );
-        expect(resolveInfos[0].graphileMeta.messages[1].message).toMatch(
+        expect(resolveInfos[0].graphileMeta.messages[1].message).toContain(
+          `before user ${op} mutation`
+        );
+        expect(resolveInfos[0].graphileMeta.messages[2].message).toMatch(
+          `after user ${op} mutation`
+        );
+        expect(resolveInfos[0].graphileMeta.messages[3].message).toMatch(
           `after user ${op} mutation`
         );
         let preName = "";
@@ -510,8 +519,24 @@ describe("equivalent functions", () => {
           {
             code: "INFO1",
             level: "info",
+            message: `NOTICE before user ${op} mutation${preName}${preTupleName}${preOp}`,
+            path: ["noticePath"],
+            op,
+            when: "before",
+          },
+          {
+            code: "INFO1",
+            level: "info",
             message: `before user ${op} mutation${preName}${preTupleName}${preOp}`,
             path: [...pathPrefix, "name"],
+          },
+          {
+            code: "INFO1",
+            level: "info",
+            message: `NOTICE after user ${op} mutation${postName}${postTupleName}${postOp}`,
+            path: ["noticePath"],
+            op,
+            when: "after",
           },
           {
             code: "INFO1",
@@ -526,8 +551,18 @@ describe("equivalent functions", () => {
         expect(snapshotSanitise(data.data.result.messages)).toEqual([
           {
             level: "info",
+            message: `NOTICE before user ${op} mutation${preName}${preTupleName}${preOp}`,
+            path: ["noticePath"],
+          },
+          {
+            level: "info",
             message: `before user ${op} mutation${preName}${preTupleName}${preOp}`,
             path: [...pathPrefix, "name"],
+          },
+          {
+            level: "info",
+            message: `NOTICE after user ${op} mutation${postName}${postTupleName}${postOp}`,
+            path: ["noticePath"],
           },
           {
             level: "info",

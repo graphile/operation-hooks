@@ -20,9 +20,18 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
         resolveInfo: GraphQLResolveInfoWithMessages
       ) => (msg: any) => {
         // TODO
+        let json: any = null;
+        try {
+          json = JSON.parse(msg.detail);
+        } catch (e) {
+          console.dir(msg);
+          console.error("Failed to parse above GOPHK NOTICE from PostgreSQL");
+          console.error(e);
+        }
         resolveInfo.graphileMeta.messages.push({
           level: "info",
-          message: `NOTICE! ${msg.message}`,
+          message: msg.message,
+          ...json,
         });
       };
       let processNotice: ((msg: any) => void) | null = null;
