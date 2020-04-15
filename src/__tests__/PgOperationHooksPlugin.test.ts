@@ -266,6 +266,11 @@ begin
       'path', array_to_json(ARRAY['noticePath'])
     );
 
+  -- We should only catch OPMSG messages, so this one should be ignored.
+  raise notice 'DON''T CATCH THIS!'
+  using
+    errcode = 'NOTOP';
+
   return next row(
     'info',
     '%WHEN% user %OP% mutation' %MSG%,

@@ -19,6 +19,10 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
       const makeProcessNotice = (
         resolveInfo: GraphQLResolveInfoWithMessages
       ) => (msg: any) => {
+        if (msg.code !== "OPMSG") {
+          // We only care about OPMSG NOTICEs
+          return;
+        }
         // TODO
         let json: any = null;
         try {
