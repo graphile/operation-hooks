@@ -2,7 +2,7 @@
 
 This is a PostGraphile server plugin which encompasses a collection of
 Graphile Engine plugins enabling you to register asynchronous callbacks
-before/after operations; uses include:
+before/during/after operations; uses include:
 
 - validation - check that the incoming arguments are valid
 - authorization - check that the user is permitted to take that action
@@ -16,6 +16,7 @@ Subscription types) and can:
 - exit early (with or without an error) - preventing the operation being executed
 - augment the result of the operation (typically in order to add additional information)
 - accumulate metadata from before/after the operation
+- accumulate metadata during the operation (mutations only; e.g. via trigger functions)
 - augment error objects with said metadata
 
 ## Usage:
@@ -121,13 +122,15 @@ additional arbitrary keys. I've also tagged each one `[B]` for "before" (i.e.
 this message would be generated before the mutation takes place), `[A]` for
 "after" (i.e. this message would be generated during or after the mutation),
 and `[E]` for "error" (i.e. this message may be generated if an error
-occurred during the mutation itself).
+occurred during the mutation itself). Note that the `[A]` (after) messages
+might also be triggered _during_ the mutation, rather than afterwards; more on
+this below.
 
 The `level` key is treated specially; if any message generated before the
 mutation takes place produces a message with `level='error'` then the
 mutation will be aborted with an error. The value in doing this with these
 messages is that more than one error (along with associated warnings,
-notices, etc) can be raised at the same time, allowing the user to fix
+notices, etc.) can be raised at the same time, allowing the user to fix
 multiple issues at once, resulting in greater user satisfaction.
 
 Messages are accumulated from all the operation hooks that have been added to
@@ -182,6 +185,39 @@ interface:
 ⚠️ Please note that messages added to errors do NOT conform to the GraphQL
 definitions, so be careful to not expose more information than you intend!
 
+## SQL NOTICEs
+
+This is the easiest way to add messages during a mutation; you just need to
+`RAISE NOTICE` in one of the functions related with your mutation. This could
+be your
+[custom mutation](https://www.graphile.org/postgraphile/custom-mutations/)
+function itself, or it could be a trigger function called by one of the rows
+you're manipulating.
+
+Importantly, the NOTICE must use the error code `OPMSG`. It may optionally
+define `detail` which is treated as a JSON value and is merged into the message
+object.
+
+Example:
+
+```sql
+RAISE NOTICE
+  '2 + 2 is %, minus 1 that''s %; quick maths.',
+  (2 + 2),
+  (2 + 2 - 1)
+USING
+  ERRCODE = 'OPMSG',
+  DETAIL = json_build_object(
+    'level', 'info',
+    'path', array_to_json(ARRAY['noticePath']),
+    'anything_else', 'can_go_here'
+  )::text;
+```
+
+See the PostgreSQL
+[RAISE](https://www.postgresql.org/docs/current/plpgsql-errors-and-messages.html#PLPGSQL-STATEMENTS-RAISE)
+documentation for more information.
+
 ## SQL hooks
 
 Adding this schema plugin to a PostGraphile server will give you the ability
@@ -193,7 +229,7 @@ hooks interface).
 ### SQL function requirements
 
 To be detected as a mutation operation hook, these PostgreSQL functions must
-conform the the following requirements:
+conform to the following requirements:
 
 - Must be defined in an exposed schema (may be lifted in future)
 - Must be named according to the SQL Operation Callback Naming Convention (see below)
@@ -321,7 +357,7 @@ module.exports = makeAddInflectorsPlugin(
 );
 ```
 
-## Implemeting operation hooks in JavaScript
+## Implementing operation hooks in JavaScript
 
 You can also implement hooks in JavaScript (the SQL hooks are actually
 implemented using the JavaScript interface). To do so, you use the
