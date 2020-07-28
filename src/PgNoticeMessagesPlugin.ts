@@ -38,7 +38,6 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
           ...json,
         });
       };
-      let processNotice: ((msg: any) => void) | null = null;
 
       const registerNotifyListener: OperationHookCallback = (
         input,
@@ -46,13 +45,16 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
         context,
         resolveInfo: GraphQLResolveInfoWithMessages
       ) => {
-        assert(!processNotice, "processNotice should not be set yet!");
         if (!context || !context.pgClient) {
           // Not a PostGraphile dispatch (no client) - just return
           return input;
         }
-        processNotice = makeProcessNotice(resolveInfo);
-        context.pgClient.on("notice", processNotice);
+        assert(
+          !context.pgClient["processNotice"],
+          "processNotice should not be set yet!"
+        );
+        context.pgClient["processNotice"] = makeProcessNotice(resolveInfo);
+        context.pgClient.on("notice", context.pgClient["processNotice"]);
         return input;
       };
 
@@ -62,8 +64,12 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
         context,
         _resolveInfo: GraphQLResolveInfoWithMessages
       ) => {
-        if (processNotice) {
-          context.pgClient.removeListener("notice", processNotice);
+        if (context.pgClient["processNotice"]) {
+          context.pgClient.removeListener(
+            "notice",
+            context.pgClient["processNotice"]
+          );
+          delete context.pgClient["processNotice"];
         }
         return input;
       };
