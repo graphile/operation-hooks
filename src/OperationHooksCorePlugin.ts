@@ -8,7 +8,7 @@ import {
 const FINALLY: any = Symbol("finally");
 
 export interface GraphQLResolveInfoWithMeta extends GraphQLResolveInfo {
-  graphileMeta: {};
+  graphileMeta: Record<string, unknown>;
 }
 
 export type OperationHookCallback<
