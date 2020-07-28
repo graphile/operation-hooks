@@ -23,7 +23,6 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
           // We only care about OPMSG NOTICEs
           return;
         }
-        // TODO
         let json: any = null;
         try {
           json = JSON.parse(msg.detail);
@@ -64,7 +63,7 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
         context,
         _resolveInfo: GraphQLResolveInfoWithMessages
       ) => {
-        if (context.pgClient["processNotice"]) {
+        if (context && context.pgClient && context.pgClient["processNotice"]) {
           context.pgClient.removeListener(
             "notice",
             context.pgClient["processNotice"]
