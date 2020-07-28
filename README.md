@@ -1,22 +1,27 @@
 # Operation Hooks
 
-This is a PostGraphile server plugin which encompasses a collection of
-Graphile Engine plugins enabling you to register asynchronous callbacks
+This is a PostGraphile server plugin which encompasses a collection of Graphile
+Engine plugins enabling you to register asynchronous callbacks
 before/during/after operations; uses include:
 
 - validation - check that the incoming arguments are valid
 - authorization - check that the user is permitted to take that action
 - error - aborting the action for some reason (e.g. insufficient funds)
-- notification - inform the user of hints, validation errors, warnings, success, and relevant meta-information (e.g. remaining balance)
-- mutation pre-flight - do the preliminary checks of mutation (and throw any errors they may raise) without actually doing the mutation
+- notification - inform the user of hints, validation errors, warnings, success,
+  and relevant meta-information (e.g. remaining balance)
+- mutation pre-flight - do the preliminary checks of mutation (and throw any
+  errors they may raise) without actually doing the mutation
 
 The callbacks only affect root fields (e.g. fields on the Query, Mutation and
 Subscription types) and can:
 
-- exit early (with or without an error) - preventing the operation being executed
-- augment the result of the operation (typically in order to add additional information)
+- exit early (with or without an error) - preventing the operation being
+  executed
+- augment the result of the operation (typically in order to add additional
+  information)
 - accumulate metadata from before/after the operation
-- accumulate metadata during the operation (mutations only; e.g. via trigger functions)
+- accumulate metadata during the operation (mutations only; e.g. via trigger
+  functions)
 - augment error objects with said metadata
 
 ## Usage:
@@ -31,9 +36,9 @@ postgraphile \
 ```
 
 (`--operation-messages` exposes generated messages on mutation payloads and
-GraphQL error objects; `--operation-messages-preflight` adds a preflight
-option to mutations which allows the pre-mutation checks to run (and messages
-to be generates) but does not actually perform the mutation.)
+GraphQL error objects; `--operation-messages-preflight` adds a preflight option
+to mutations which allows the pre-mutation checks to run (and messages to be
+generates) but does not actually perform the mutation.)
 
 PostGraphile library:
 
@@ -101,37 +106,45 @@ extend type Mutation {
 There's a number of messages you might be interested in sending:
 
 - Validation errors (abort) or warnings (hint, but don't abort):
-  - [B] level: 'error', message: 'Invalid email address - must contain at least one @ symbol', path: ['input', 'email']
+  - [B] level: 'error', message: 'Invalid email address - must contain at least
+    one @ symbol', path: ['input', 'email']
   - [B] level: 'warning', message: 'Missing subject', path: ['input', 'subject']
-  - [E] level: 'error', message: 'The domain for this email is unreachable', path: ['input', 'email']
+  - [E] level: 'error', message: 'The domain for this email is unreachable',
+    path: ['input', 'email']
 - Authorization issues:
   - [B] level: 'error', message: 'You must be on a paid plan to send emails'
-  - [B] level: 'error', message: 'You are not permitted to email this address', path: ['input', 'email']
+  - [B] level: 'error', message: 'You are not permitted to email this address',
+    path: ['input', 'email']
 - Business requirements:
-  - [B] level: 'error', message: 'Insufficient credits to send email', remaining_credits: 2, required_credits: 7
-  - [A] level: 'warn', message: 'Your credit is very low', remaining_credits: 9, required_credits: 7
+  - [B] level: 'error', message: 'Insufficient credits to send email',
+    remaining_credits: 2, required_credits: 7
+  - [A] level: 'warn', message: 'Your credit is very low', remaining_credits: 9,
+    required_credits: 7
 - Notices:
-  - [E] level: 'error', message: 'Email sending is not available at this time, please try again later'
-  - [B] level: 'notice', message: 'Emails are currently subject to a 3 minute delay due to abuse circumvention; normal service should resume shortly'
-  - [A] level: 'notice', message: 'Email sent, remaining credits: 177', remaining_credits: 177
-  - [A] level: 'notice', message: 'You have 2 unsent emails in your outbox, please review them'
+  - [E] level: 'error', message: 'Email sending is not available at this time,
+    please try again later'
+  - [B] level: 'notice', message: 'Emails are currently subject to a 3 minute
+    delay due to abuse circumvention; normal service should resume shortly'
+  - [A] level: 'notice', message: 'Email sent, remaining credits: 177',
+    remaining_credits: 177
+  - [A] level: 'notice', message: 'You have 2 unsent emails in your outbox,
+    please review them'
 
-You'll notice that every message has a `level` string and `message` string,
-many also have a `path` string array. All messages can optionally define
-additional arbitrary keys. I've also tagged each one `[B]` for "before" (i.e.
-this message would be generated before the mutation takes place), `[A]` for
-"after" (i.e. this message would be generated during or after the mutation),
-and `[E]` for "error" (i.e. this message may be generated if an error
-occurred during the mutation itself). Note that the `[A]` (after) messages
-might also be triggered _during_ the mutation, rather than afterwards; more on
-this below.
+You'll notice that every message has a `level` string and `message` string, many
+also have a `path` string array. All messages can optionally define additional
+arbitrary keys. I've also tagged each one `[B]` for "before" (i.e. this message
+would be generated before the mutation takes place), `[A]` for "after" (i.e.
+this message would be generated during or after the mutation), and `[E]` for
+"error" (i.e. this message may be generated if an error occurred during the
+mutation itself). Note that the `[A]` (after) messages might also be triggered
+_during_ the mutation, rather than afterwards; more on this below.
 
 The `level` key is treated specially; if any message generated before the
-mutation takes place produces a message with `level='error'` then the
-mutation will be aborted with an error. The value in doing this with these
-messages is that more than one error (along with associated warnings,
-notices, etc.) can be raised at the same time, allowing the user to fix
-multiple issues at once, resulting in greater user satisfaction.
+mutation takes place produces a message with `level='error'` then the mutation
+will be aborted with an error. The value in doing this with these messages is
+that more than one error (along with associated warnings, notices, etc.) can be
+raised at the same time, allowing the user to fix multiple issues at once,
+resulting in greater user satisfaction.
 
 Messages are accumulated from all the operation hooks that have been added to
 the current mutation. One hook producing a message with level=error will not
@@ -140,15 +153,15 @@ from being called by literally throwing an error).
 
 ### Exposing messages
 
-Should you wish to surface notifications via GraphQL (rather than just using
-the before/after hooks to cause side effects, or possibly raise 'error'
-messages), you may use the CLI flag `--operation-messages` or library config
+Should you wish to surface notifications via GraphQL (rather than just using the
+before/after hooks to cause side effects, or possibly raise 'error' messages),
+you may use the CLI flag `--operation-messages` or library config
 `operationMessages: true`. Doing so will extend the mutation payloads in your
-GraphQL schema with a `messages` entry, a list of the messages raised, and
-will also expose relevant messages on any thrown GraphQL errors.
+GraphQL schema with a `messages` entry, a list of the messages raised, and will
+also expose relevant messages on any thrown GraphQL errors.
 
-We will define an `OperationMessageInterface` interface that all messages
-must conform to:
+We will define an `OperationMessageInterface` interface that all messages must
+conform to:
 
 ```graphql
 interface OperationMessageInterface {
@@ -166,20 +179,22 @@ extend type *MutationPayload {
 }
 ```
 
-You can then define whatever concrete message subtypes you need to be
-returned. A message type must specify at least the 3 fields defined in the
-interface:
+You can then define whatever concrete message subtypes you need to be returned.
+A message type must specify at least the 3 fields defined in the interface:
 
 - `level` (required, string)
   - e.g. `error`, `warning`, `notification`, `info`, `debug`, ...
   - helps client figure out how to use the message
-  - `error` is special - it will abort the transaction on the server (all others are just passed to client)
+  - `error` is special - it will abort the transaction on the server (all others
+    are just passed to client)
 - `message` (required, string)
   - e.g. `Invalid email`
-  - a human-readable error message; fallback for if the client does not understand the rest of the payload
+  - a human-readable error message; fallback for if the client does not
+    understand the rest of the payload
 - `path` (optional, string array)
   - e.g. `['input', 'userPatch', 'firstName']`
-  - application developer may find other uses for this, so no further validation will be done
+  - application developer may find other uses for this, so no further validation
+    will be done
   - typically denotes the path to the field that caused the error
 
 ⚠️ Please note that messages added to errors do NOT conform to the GraphQL
@@ -188,9 +203,8 @@ definitions, so be careful to not expose more information than you intend!
 ## SQL NOTICEs
 
 This is the easiest way to add messages during a mutation; you just need to
-`RAISE NOTICE` in one of the functions related with your mutation. This could
-be your
-[custom mutation](https://www.graphile.org/postgraphile/custom-mutations/)
+`RAISE NOTICE` in one of the functions related with your mutation. This could be
+your [custom mutation](https://www.graphile.org/postgraphile/custom-mutations/)
 function itself, or it could be a trigger function called by one of the rows
 you're manipulating.
 
@@ -220,11 +234,10 @@ documentation for more information.
 
 ## SQL hooks
 
-Adding this schema plugin to a PostGraphile server will give you the ability
-to define mutation operation hooks via PostgreSQL functions. These hooks only
-apply to the built in CRUD mutations, for custom mutations or schema
-extensions you should implement the logic within the mutation (or use the JS
-hooks interface).
+Adding this schema plugin to a PostGraphile server will give you the ability to
+define mutation operation hooks via PostgreSQL functions. These hooks only apply
+to the built in CRUD mutations, for custom mutations or schema extensions you
+should implement the logic within the mutation (or use the JS hooks interface).
 
 ### SQL function requirements
 
@@ -232,17 +245,21 @@ To be detected as a mutation operation hook, these PostgreSQL functions must
 conform to the following requirements:
 
 - Must be defined in an exposed schema (may be lifted in future)
-- Must be named according to the SQL Operation Callback Naming Convention (see below)
+- Must be named according to the SQL Operation Callback Naming Convention (see
+  below)
 - Must accept the first 0, 1, 2 or 3 of the following arguments:
-  - `data` (JSON/JSONB) - the data the user submitted to be stored to the record (INSERT: the create object, UPDATE: the patch object, DELETE: `null`)
-  - `tuple` (table type) - the current row in the database (because we expose a lot of methods to mutate the same row)
+  - `data` (JSON/JSONB) - the data the user submitted to be stored to the record
+    (INSERT: the create object, UPDATE: the patch object, DELETE: `null`)
+  - `tuple` (table type) - the current row in the database (because we expose a
+    lot of methods to mutate the same row)
     - before insert: `null`
     - after insert: the new row, using the primary key
     - before update: the old row, using the unique constraint
     - after update: the new row, using the primary key
     - before delete: the old row, using the unique constraint
     - after delete: `null`
-  - `op` (string) - the operation (`insert`, `update`, or `delete`) - useful if you want to share the same function between multiple operations
+  - `op` (string) - the operation (`insert`, `update`, or `delete`) - useful if
+    you want to share the same function between multiple operations
 - Must return:
   - `VOID`, or
   - `SETOF mutation_message`, or
@@ -252,8 +269,8 @@ conform to the following requirements:
 - Must be either `VOLATILE` (default) or `STABLE` (note: should only be `STABLE`
   if it does not return `VOID`)
 
-Recommendation: add an `@omit` smart comment to the function to have it
-excluded from the GraphQL schema.
+Recommendation: add an `@omit` smart comment to the function to have it excluded
+from the GraphQL schema.
 
 #### Example
 
@@ -369,8 +386,8 @@ need. (We'll probably make a helper for this in future!)
 You can load your plugin with the standard `--append-plugins` (library:
 `appendPlugins`) option.
 
-What follows is an example plugin, you can see it in use in [this example
-repository](https://github.com/graphile/operation-hooks-example).
+What follows is an example plugin, you can see it in use in
+[this example repository](https://github.com/graphile/operation-hooks-example).
 
 ```js
 // This plugin logs all attempts at `create` mutations before they're attempted.
@@ -470,8 +487,8 @@ module.exports = function MyOperationHookPlugin(builder) {
 ## Caveats
 
 Don't try and use this for things like field masking since there's a lot of
-different ways a user can access a field in GraphQL. Field masking should be solved via
-`makeWrapResolversPlugin` or similar approach instead.
+different ways a user can access a field in GraphQL. Field masking should be
+solved via `makeWrapResolversPlugin` or similar approach instead.
 
 This is a young plugin, it will evolve over time.
 

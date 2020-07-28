@@ -53,7 +53,8 @@
     "graphile-utils": "^4.4.4"
   },
   "prettier": {
-    "trailingComma": "es5"
+    "trailingComma": "es5",
+    "proseWrap": "always"
   },
   "files": [
     "lib"
