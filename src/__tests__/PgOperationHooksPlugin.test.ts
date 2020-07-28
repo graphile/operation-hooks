@@ -164,7 +164,7 @@ function postgraphql(
     {
       pgPool,
     },
-    (postgraphileContext: {}) =>
+    (postgraphileContext: Record<string, unknown>) =>
       withTransaction(pgPool, (pgClient) =>
         graphql(
           schema,
