@@ -159,101 +159,112 @@ const OperationHooksCorePlugin: Plugin = function OperationHooksCorePlugin(
     });
   });
 
-  builder.hook("GraphQLObjectType:fields:field", (field, build, context) => {
-    const _getOperationHookCallbacksForContext: GetOperationHooksCallbackForContextFn =
-      build._getOperationHookCallbacksForContext;
-    const {
-      Self,
-      scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription },
-    } = context;
+  builder.hook(
+    "GraphQLObjectType:fields:field",
+    (field, build, context) => {
+      const _getOperationHookCallbacksForContext: GetOperationHooksCallbackForContextFn =
+        build._getOperationHookCallbacksForContext;
+      const {
+        Self,
+        scope: { fieldName, isRootQuery, isRootMutation, isRootSubscription },
+      } = context;
 
-    // We only care about root fields
-    if (!isRootQuery && !isRootMutation && !isRootSubscription) {
-      return field;
-    }
+      // We only care about root fields
+      if (!isRootQuery && !isRootMutation && !isRootSubscription) {
+        return field;
+      }
 
-    // Get the hook for this context
-    const callbacks = _getOperationHookCallbacksForContext(context);
-    if (!callbacks) {
-      return field;
-    }
+      // Get the hook for this context
+      const callbacks = _getOperationHookCallbacksForContext(context);
+      if (!callbacks) {
+        return field;
+      }
 
-    // Get the old resolver for us to wrap
-    const oldResolve = field.resolve;
-    if (!oldResolve) {
-      throw new Error(
-        `Default resolver found for field ${Self.name}.${fieldName}; default resolvers at the root level are not supported by operation-hooks`
-      );
-    }
-
-    const resolve: GraphQLFieldResolver<any, any> = async function (
-      op,
-      args,
-      context,
-      resolveInfo
-    ) {
-      const resolveInfoWithMeta: GraphQLResolveInfoWithMeta = {
-        ...resolveInfo,
-        graphileMeta: {},
-      };
-
-      try {
-        const symbol = Symbol("before");
-        // Perform the 'before' hooks
-        const beforeResult = await applyHooks(
-          callbacks.before,
-          symbol,
-          args,
-          context,
-          resolveInfoWithMeta
-        );
-
-        // Exit early if someone changed the result
-        if (beforeResult !== symbol) {
-          return beforeResult;
-        }
-
-        // Call the old resolver
-        const result = await oldResolve(op, args, context, resolveInfoWithMeta);
-
-        // Perform the 'after' hooks
-        const afterResult = await applyHooks(
-          callbacks.after,
-          result,
-          args,
-          context,
-          resolveInfoWithMeta
-        );
-        return afterResult;
-      } catch (error) {
-        // An error occured, call the 'error' hooks
-        const errorResult = await applyHooks(
-          callbacks.error,
-          error,
-          args,
-          context,
-          resolveInfoWithMeta
-        );
-        throw errorResult;
-      } finally {
-        await applyHooks(
-          callbacks.finally,
-          FINALLY,
-          args,
-          context,
-          resolveInfoWithMeta,
-          true
+      // Get the old resolver for us to wrap
+      const oldResolve = field.resolve;
+      if (!oldResolve) {
+        throw new Error(
+          `Default resolver found for field ${Self.name}.${fieldName}; default resolvers at the root level are not supported by operation-hooks`
         );
       }
-    };
-    resolve["__asyncHooks"] = true;
 
-    // Finally override the resolve method
-    return {
-      ...field,
-      resolve,
-    };
-  });
+      const resolve: GraphQLFieldResolver<any, any> = async function (
+        op,
+        args,
+        context,
+        resolveInfo
+      ) {
+        const resolveInfoWithMeta: GraphQLResolveInfoWithMeta = {
+          ...resolveInfo,
+          graphileMeta: {},
+        };
+
+        try {
+          const symbol = Symbol("before");
+          // Perform the 'before' hooks
+          const beforeResult = await applyHooks(
+            callbacks.before,
+            symbol,
+            args,
+            context,
+            resolveInfoWithMeta
+          );
+
+          // Exit early if someone changed the result
+          if (beforeResult !== symbol) {
+            return beforeResult;
+          }
+
+          // Call the old resolver
+          const result = await oldResolve(
+            op,
+            args,
+            context,
+            resolveInfoWithMeta
+          );
+
+          // Perform the 'after' hooks
+          const afterResult = await applyHooks(
+            callbacks.after,
+            result,
+            args,
+            context,
+            resolveInfoWithMeta
+          );
+          return afterResult;
+        } catch (error) {
+          // An error occured, call the 'error' hooks
+          const errorResult = await applyHooks(
+            callbacks.error,
+            error,
+            args,
+            context,
+            resolveInfoWithMeta
+          );
+          throw errorResult;
+        } finally {
+          await applyHooks(
+            callbacks.finally,
+            FINALLY,
+            args,
+            context,
+            resolveInfoWithMeta,
+            true
+          );
+        }
+      };
+      resolve["__asyncHooks"] = true;
+
+      // Finally override the resolve method
+      return {
+        ...field,
+        resolve,
+      };
+    },
+    [],
+    [],
+    ["PgSubscriptionResolver"]
+  );
 
   // Ensure all the resolvers have been wrapped (i.e. sanity check)
   builder.hook("finalize", (schema) => {
