@@ -210,9 +210,16 @@ you're manipulating.
 
 Importantly, the NOTICE must use the error code `OPMSG`. It may optionally
 define `detail` which is treated as a JSON value and is merged into the message
-object.
+object; if no `level` key is included as part of `detail` then the level will
+default to `info`.
 
-Example:
+Minimal example:
+
+```sql
+RAISE NOTICE 'Your credits are running low.' USING ERRCODE = 'OPMSG';
+```
+
+Fuller example:
 
 ```sql
 RAISE NOTICE
