@@ -24,8 +24,12 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
           return;
         }
         let json: any = null;
+        let jsonRest: any = null;
         try {
           json = JSON.parse(msg.detail);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { level, message, path, ...jsonRestTmp } = json;
+          jsonRest = jsonRestTmp;
         } catch (e) {
           console.dir(msg);
           console.error("Failed to parse above OPMSG NOTICE from PostgreSQL");
@@ -35,6 +39,7 @@ const PgNoticeMessagesPlugin: Plugin = function PgNoticeMessagesPlugin(
           level: "info",
           message: msg.message,
           ...json,
+          detail: jsonRest ? JSON.stringify(jsonRest) : undefined,
         });
       };
 

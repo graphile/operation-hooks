@@ -8,6 +8,7 @@ interface Message {
   level: string;
   message: string;
   path?: string[];
+  detail?: string;
 }
 
 export interface GraphQLResolveInfoWithMessages

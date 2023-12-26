@@ -11,6 +11,7 @@ test("creates messages on meta", async () => {
         resolveInfo.graphileMeta.messages.push({
           level: "info",
           message: "All good",
+          detail: JSON.stringify({ foo: "bar" }),
         });
         return input;
       }
@@ -23,6 +24,7 @@ test("creates messages on meta", async () => {
   expect(resolveInfos[0].graphileMeta.messages).toMatchInlineSnapshot(`
 Array [
   Object {
+    "detail": "{\\"foo\\":\\"bar\\"}",
     "level": "info",
     "message": "All good",
   },
@@ -36,6 +38,7 @@ Object {
       "messages": Array [
         Object {
           "__typename": "OperationMessage",
+          "detail": "{\\"foo\\":\\"bar\\"}",
           "level": "info",
           "message": "All good",
         },
@@ -133,21 +136,25 @@ Object {
   "messages": Array [
     Object {
       "__typename": "OperationMessage",
+      "detail": null,
       "level": "info",
       "message": "Information from before",
     },
     Object {
       "__typename": "OperationMessage",
+      "detail": null,
       "level": "warn",
       "message": "Warning from before",
     },
     Object {
       "__typename": "OperationMessage",
+      "detail": null,
       "level": "info",
       "message": "Information from after",
     },
     Object {
       "__typename": "OperationMessage",
+      "detail": null,
       "level": "info",
       "message": "More information from after",
     },
@@ -198,11 +205,13 @@ Object {
   "messages": Array [
     Object {
       "__typename": "OperationMessage",
+      "detail": null,
       "level": "info",
       "message": "Information from before",
     },
     Object {
       "__typename": "OperationMessage",
+      "detail": null,
       "level": "warn",
       "message": "Warning from before",
     },

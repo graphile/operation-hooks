@@ -53,6 +53,10 @@ const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessage
             description:
               "A list of path components to the location in the input at which this message was generated.",
           },
+          detail: {
+            type: GraphQLString,
+            description: "Additional data associated with the message",
+          },
         },
       },
       {
@@ -79,6 +83,10 @@ const OperationMessagesMutationPayloadPlugin: Plugin = function OperationMessage
             type: new GraphQLList(new GraphQLNonNull(GraphQLString)),
             description:
               "A list of path components to the location in the input at which this message was generated.",
+          },
+          detail: {
+            type: GraphQLString,
+            description: "Additional data associated with the message",
           },
         },
       },

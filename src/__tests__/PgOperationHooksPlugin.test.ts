@@ -523,6 +523,7 @@ describe("equivalent functions", () => {
         expect(resolveInfos[0].graphileMeta.messages).toEqual([
           {
             code: "INFO1",
+            detail: `{"when":"before","op":"${op}","code":"INFO1"}`,
             level: "info",
             message: `NOTICE before user ${op} mutation${preName}${preTupleName}${preOp}`,
             path: ["noticePath"],
@@ -537,6 +538,7 @@ describe("equivalent functions", () => {
           },
           {
             code: "INFO1",
+            detail: `{"when":"after","op":"${op}","code":"INFO1"}`,
             level: "info",
             message: `NOTICE after user ${op} mutation${postName}${postTupleName}${postOp}`,
             path: ["noticePath"],

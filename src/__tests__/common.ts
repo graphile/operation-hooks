@@ -64,6 +64,7 @@ export const EchoHiMutation = `
         __typename
         level
         message
+        detail
       }
       preflight
     }
